@@ -114,20 +114,37 @@ function splitMessageInTwo(text, maximumSplit, miminumSplit=500) {
     }
   }
   let result = null
-  for (let delimBreak of [true, false]) {
-    // Markdown title break 
-    result = splitIfFound(text => text.lastIndexOf('\n#'), true, delimBreak);
-    if (result) return result;
+
+  function increasingList(X, Y) {
+    return Array.from({ length: Y - X + 1 }, (_, i) => X + i);
+  }
+  function decreasingList(Y, X) {
+    return Array.from({ length: Y - X + 1 }, (_, i) => Y - i);
+  }
+  function repeatCharacter(char, times) {
+    return char.repeat(times);
+  }
+  function markdownTitle(depth, allowMarkdownInlineBreak = true, allowDelimiter = false) {
+    result = splitIfFound(text => text.lastIndexOf('\n' + repeatCharacter('#', depth) + ' '), allowMarkdownInlineBreak, allowDelimiter);
+    if (result) return result;    
+  }
+
+  for (let allowDelimiter of [true, false]) {
+    for (let depth of increasingList(1,6)) {
+      // Markdown title break 
+      result = markdownTitle(depth, true, allowDelimiter);
+      if (result) return result;
+    }
     // Check for paragraph break
-    result = splitIfFound(text => text.lastIndexOf('\n\n'), true, delimBreak);
+    result = splitIfFound(text => text.lastIndexOf('\n\n'), true, allowDelimiter);
     if (result) return result;
     // Newline break 
-    result = splitIfFound(text => text.lastIndexOf('\n'), true, delimBreak);
+    result = splitIfFound(text => text.lastIndexOf('\n'), true, allowDelimiter);
     if (result) return result;
     // Sentence break
-    result = splitIfFound(findLastSentenceBreak, false, delimBreak);
+    result = splitIfFound(findLastSentenceBreak, false, allowDelimiter);
     // Space break
-    result = splitIfFound(text => text.lastIndexOf(' '), false, delimBreak);
+    result = splitIfFound(text => text.lastIndexOf(' '), false, allowDelimiter);
     if (result) return result;
   }
   // Everything failed, split at maximum
