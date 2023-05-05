@@ -30,7 +30,8 @@ module.exports = {
   retry_delay: 1500,
   
   // if a single message is too big, it needs to be split for slack
-  // the split it done based on
+  // It will try splitting respecting markdown, paragraphs, and sentences
+  // but this sets the minimum accepted for message to be split to this size
   minimum_message_split_size: 500,
 
   // What prefix/suffix to use on example chat roles
