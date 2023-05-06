@@ -2,6 +2,7 @@
 
 <p align="center">Script for connecting Claude to Tavern</p>
 <p align="center">(Credits at the bottom of this page. I DEMAND you acknowledge everyone who made this work.)</p>
+<p align="center">Also check out Slaude! [PandarusAnon/slaude](https://github.com/PandarusAnon/slaude)</p>
 
 ---
 <br>
@@ -122,9 +123,9 @@ Claude cannot handle any backslashes(\\) anywhere. If one shows up on a chararct
 
 
 
-Original code by Barbariskaa (https://github.com/Barbariskaa/Spermack)
+Original code by [Barbiariskaa/Spermack](https://github.com/Barbariskaa/Spermack)
 
-Streaming, Mindbreaking, Chat Examples, and other fixes by Bruno FS (https://github.com/bfs15)
+Streaming, Mindbreaking, Chat Examples, and other fixes by [Bruno FS](https://github.com/bfs15)
 
 Translation/Readme by AmmoniaM <3
 
