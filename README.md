@@ -2,7 +2,7 @@
 
 <p align="center">Script for connecting Claude to Tavern</p>
 <p align="center">(Credits at the bottom of this page. I DEMAND you acknowledge everyone who made this work.)</p>
-<p align="center">Also check out Slaude! https://github.com/PandarusAnon/slaude</p>
+<p align="center">Also check out Slaude https://github.com/PandarusAnon/slaude as a Spermack alternative that uses threads instead of DMs!</p>
 
 ---
 <br>
