@@ -1,8 +1,13 @@
+<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
+<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
+<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
+<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
+
+---
 <h1 align="center">Spermack</h1>
 
 <p align="center">Script for connecting Claude to Tavern</p>
 <p align="center">(Credits at the bottom of this page. I DEMAND you acknowledge everyone who made this work.)</p>
-<p align="center">Also check out Slaude https://github.com/PandarusAnon/slaude as a Spermack alternative that uses threads instead of DMs!</p>
 
 ---
 <br>
