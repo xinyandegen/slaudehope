@@ -1,9 +1,8 @@
-<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
-<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
-<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
-<h1 align="center">Slaude https://github.com/bfs15/slaude is reccomended over Spermack!</h1>
+<h1 align="center">Slaude https://github.com/bfs15/slaude is recommended over Spermack!</h1>
+<h1 align="center">Slaude https://github.com/bfs15/slaude is recommended over Spermack!</h1>
+<h1 align="center">Slaude https://github.com/bfs15/slaude is recommended over Spermack!</h1>
+<h1 align="center">Slaude https://github.com/bfs15/slaude is recommended over Spermack!</h1>
 
----
 <h1 align="center">Spermack</h1>
 
 <p align="center">Script for connecting Claude to Tavern</p>
