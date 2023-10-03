@@ -17,6 +17,7 @@ async function main() {
             // console.log("messages\n",messages);
             // remove trailing whitespace from messages
             messages.forEach(message => {
+                console.log(message.content)
                 message.content = message.content.replace(/[^\S\r\n]+$/gm, "");
             });
             slices = splitJsonArray(messages, 12000);

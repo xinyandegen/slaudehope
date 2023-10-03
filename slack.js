@@ -409,6 +409,7 @@ async function getWebSocketResponse(messages, streaming, retries) {
                       let currentTextChunk = data.message.text.slice(currentSlice);
                       currentSlice = data.message.text.length;
                       console.log("Finished:", data.message.text.length, " characters");
+                      currentTextChunk = currentTextChunk.replace(/\*/g, '');
                       controller.enqueue(currentTextChunk);
                       controller.close();
                       websocket.close(1000, 'Connection closed by client');
@@ -417,6 +418,7 @@ async function getWebSocketResponse(messages, streaming, retries) {
                       let currentTextChunk = data.message.text.slice(currentSlice, actualLength);
                       currentSlice = actualLength
                       console.log("Sending :", currentTextChunk.length, " characters");
+                      currentTextChunk = currentTextChunk.replace(/\*/g, '');
                       controller.enqueue(currentTextChunk);
                     }
                   }

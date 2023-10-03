@@ -59,6 +59,8 @@ function preparePrompt(messages) {
 
 function buildPrompt(messages) {
   prompt = preparePrompt(messages);
+  prompt = prompt.replace(/\n[ \t]*\n/g, '\n');
+  prompt = prompt.replace(/\*/g, '');
   return prompt;
 };
 
@@ -314,7 +316,12 @@ function splitJsonArray(jsonArray, maxLength) {
     }
     prevIdx = i;
     const msgLength = getMessageLength(currentMsg) + 2;
-    if (currentLength + msgLength + textOverhead <= maxLength) {
+    console.log(currentLength+" "+msgLength+" "+textOverhead);
+    if (modifiedObj) {
+      modifiedObj = false;
+    }
+    currentLength = addObjectToChunk(currentMsg, currentChunk);
+    /*if (currentLength + msgLength + textOverhead <= 12000) {
       if (modifiedObj) {
         modifiedObj = false;
       }
@@ -335,87 +342,8 @@ function splitJsonArray(jsonArray, maxLength) {
 
           currentChunk = [];
           currentLength = 0;
-          i--; // critical so you don't go to next obj, and process this one instead
+          i--;
         } else {
-          // the thing is that below this, another chunk will start with `currentMsg` as the first message
-          // but the flag dictates the chunk can only start when the first message is from the role `finish_message_chunk_with_this_role_only`
-          // Solution: remove last message from currentChunk and add to next chunk, together with `currentMsg`
-
-          //  example:
-          //   slices = [
-          //     0,
-          //     1,
-          //     2,
-          //   ];
-
-          //   i = 2;
-          //   // currentMsg (2) doesn't fit, and 1 (lastObjectInChunk) is denied by role
-          //   state:
-          //     currentChunk = [
-          //       0,
-          //       1, // denied, will pop()
-          //     ];
-          //     results = [];
-
-          //   (same loop next commands and state)
-          //   i=2
-          //   currentChunk.pop();
-          //   result.push(currentChunk);
-          //   currentChunk = [];
-          //   i -= 2; // 2 because you need to go back one, and for loop also does i++,
-          //   state:
-          //     currentChunk = [];
-          //     results = [
-          //       [
-          //         0,
-          //       ],
-          //     ];
-
-          //   (next loop, i++)
-          //   i = 1;
-          //   // ... adds 1 no prob
-          //   state:
-          //     currentChunk = [1];
-          //     results = [
-          //       [
-          //         0,
-          //       ],
-          //     ];
-          // // ... continues as normal, first chunk fixed (1 is not last msg)
-
-          //   i = 1;
-          //   // currentMsg (1) doesn't fit, and 0 (lastObjectInChunk) is denied by role
-          //   state:
-          //     currentChunk = [
-          //       0, // will pop()
-          //     ];
-          //     results = [];
-
-          //   (same loop next commands and state)
-          //   i=1
-          //   currentChunk.pop();
-          //   result.push(currentChunk);
-          //   currentChunk = [];
-          //   i -= 2; // 2 because you need to go back one, and for loop also does i++,
-          //   state:
-          //     currentChunk = [];
-          //     results = [
-          //       [
-          //         0,
-          //       ],
-          //     ];
-
-          //   (next loop, i++)
-          //   i = 1;
-          //   // ... adds 1 no prob
-          //   state:
-          //     currentChunk = [1];
-          //     results = [
-          //       [
-          //         0,
-          //       ],
-          //     ];
-          // // ... continues as normal, first chunk fixed (1 is not last msg)
           console.log("Adding last chunk's msg to next one instead (end of chunk's msg had role denied by finish_message_chunk_with_this_role_only in config)")
           currentChunk.pop();
             currentChunk[currentChunk.length - 1] = appendTextToContent(
@@ -448,7 +376,7 @@ function splitJsonArray(jsonArray, maxLength) {
         i--; // critical so you don't go to next obj, and process this one instead
         console.log("split into ", getMessageLength(msgFirstSplit), getMessageLength(currentMsg))
       }
-    }
+    }*/
   }
 
   if (currentChunk.length > 0) {
