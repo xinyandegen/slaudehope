@@ -1,19 +1,14 @@
 const https = require('https');
 const WebSocket = require('ws');
 
-const { TOKEN, COOKIE, TEAM_ID, CLAUDE_MEMBER_ID } = require('./config');
+const { TOKEN, TEAM_ID, CLAUDE_MEMBER_ID } = require('./config');
 const {
-  blank_prompt,
-  jail_context_expected_responses,
   jail_context_retry_attempts,
   jail_retry_attempts,
-  jail_filtered_responses,
   retry_delay,
-  minimum_response_size,
   minimum_response_size_retry_attempts,
-  textResetSignal,
 } = require('./config');
-const { readBody, headers, createBaseForm, convertToUnixTime, currentTime, buildPrompt, removeJailContextFromMessage, wait, } = require('./utils');
+const { readBody, headers, createBaseForm, convertToUnixTime, currentTime, buildPrompt,} = require('./utils');
 
 
 const editting = false; // useless feature (for now)
@@ -51,7 +46,7 @@ async function sendMessage(message) {
 
     const req = https.request(`https://${TEAM_ID}.slack.com/api/chat.postMessage`, options, async (res) => {
       try {
-        console.log("\nblocks length:", blocks_txt.length);
+        console.log("Length: ", blocks_txt.length);
         const response = await readBody(res, true);
         if (!response.ok) {
           reject(new Error("message response:" + response.error.toString() + "\nrequest:" + form.getBuffer() + "\n"));
@@ -66,46 +61,6 @@ async function sendMessage(message) {
 
     req.on('error', (error) => {
       console.trace(error.toString().slice(7,));
-    });
-
-    form.pipe(req);
-  });
-}
-
-async function editMessage(ts, newText) {
-  return new Promise((resolve, reject) => {
-    const form = createBaseForm();
-
-    form.append('ts', ts);
-    form.append('type', 'message');
-    form.append('xArgs', '{}');
-    form.append('unfurl', '[]');
-    form.append('blocks', `[{"type":"rich_text","elements":[{"type":"rich_text_section","elements":[{"type":"text","text":"${newText}"}]}]}]`);
-    form.append('include_channel_perm_error', 'true');
-    form.append('client_msg_id', Uuidv4());
-    form.append('_x_reason', 'webapp_message_send');
-
-    const options = {
-      method: 'POST',
-      headers: {
-        ...headers,
-        ...form.getHeaders(),
-      },
-    };
-
-    const req = https.request(`https://${TEAM_ID}.slack.com/api/chat.update`, options, async (res) => {
-      try {
-        const response = await readBody(res, true);
-        resolve(response);
-      } catch (error) {
-        console.trace(error.toString().slice(7,));
-        reject(new Error(error.message + "| " + "editMessage" + " request:" + form.getBuffer() + "\n"));
-      }
-    });
-
-    req.on('error', (error) => {
-      console.trace(error.toString().slice(7,));
-      reject(error);
     });
 
     form.pipe(req);
@@ -208,8 +163,7 @@ async function getWebSocketResponse(messages, streaming, retries) {
     try {
       await sendChatReset();
     } catch (error) {
-      console.trace(error.toString().slice(7,));
-      reject(new Error(error.message + "| " + "!!!! CHECK YOUR TOKENS, COOKIES./ config.js"))
+      console.error("Error: "+ error.message+ " | " + "CHECK YOUR TOKENS, COOKIES / config.js");
     }
 
     const websocketURL = `wss://wss-primary.slack.com/?token=${TOKEN}`;
@@ -220,7 +174,7 @@ async function getWebSocketResponse(messages, streaming, retries) {
 
     const waitForConnection = new Promise((connectionResolve) => {
       websocket.on('open', () => {
-        console.log('Connected to WebSocket');
+        console.log('Connected to Slack.');
         connectionResolve();
       });
     });
@@ -229,33 +183,19 @@ async function getWebSocketResponse(messages, streaming, retries) {
 
     let messageIndex = 0;
     let sentTs = null;
+    prompt = buildPrompt(messages[0]);
     const sendNextPrompt = async () => {
-      if (messageIndex < messages.length) {
-        if (editting && blank_prompt && messageIndex > 0) {
-          // this was implemented with this idea:
-          // edit previous message, to remove the AI gaslighting blank_prompt
-          // as if it never happened ( ˘ᴗ˘ )
-          // ---
-          // but with further testing I found out that Claude saves the chat history internally as the messages come to it
-          // i.e. he doesn't care about the revised chat history, only what he initially replied to
-          console.log("Editting message %d", messageIndex - 1);
-          let updatedPrompt = buildPrompt(messages[messageIndex - 1], false);
-          let newText = removeJailContextFromMessage(updatedPrompt);
-          await wait(50);
-          await editMessage(sentTs, newText);
-          await wait(150);
-        }
-        console.log("Sending message %d/%d", messageIndex, messages.length - 1);
-        let is_last_message = messageIndex == messages.length - 1
-        const prompt = buildPrompt(messages[messageIndex], is_last_message);
+      if (messageIndex < prompt.length) {
+        const chunk = prompt[messageIndex];
+        console.log("Sending Prompt %d/%d", messageIndex+1, prompt.length);
         try {
-          response = await sendMessage(prompt);
+          response = await sendMessage(chunk);
           sentTs = response.ts;
         } catch (error) {
           console.trace(error.stack);
-          throw (new Error(error.message + "| " + `sendNextPrompt: ${error.message}`))
+          throw (new Error(error.message + "| " + `getWebSocketResponse: ${error.message}`))
         }
-        console.log("Sent %d", messageIndex);
+        console.log("Sent Prompt %d/%d", messageIndex+1, prompt.length);
         messageIndex++;
       }
     };
@@ -269,34 +209,6 @@ async function getWebSocketResponse(messages, streaming, retries) {
 
     let typingString = "\n\n_Typing…_";
 
-
-    const checkJailbreakContext = (currentTextTotal) => {
-      currentTextTotal = currentTextTotal.trim();
-      let maxLen = 0
-      for (let expected_response of jail_context_expected_responses) {
-        maxLen = Math.max(maxLen, expected_response.length)
-      }
-      if (currentTextTotal.length > maxLen) {
-        return true
-      }
-      for (let expected_response of jail_context_expected_responses) {
-        if (currentTextTotal.startsWith(expected_response.slice(0, currentTextTotal.length))) {
-          return false
-        }
-      }
-      return true
-    }
-
-    const checkJailbreak = (currentTextTotal) => {
-      currentTextTotal = currentTextTotal.trim();
-      for (let filtered_response of jail_filtered_responses) {
-        if (currentTextTotal.includes(filtered_response)) {
-          return true
-        }
-      }
-      return false
-    }
-
     if (!streaming) {
       // resolve the full text at the end only
       websocket.on('message', async (message) => {
@@ -306,15 +218,9 @@ async function getWebSocketResponse(messages, streaming, retries) {
           if (data.message) {
             let senderId = data.message.user;
             if (data.subtype === 'message_changed' && (!editting || (CLAUDE_MEMBER_ID && senderId === CLAUDE_MEMBER_ID))) {
-              if (messageIndex < messages.length) {
+              if (messageIndex < prompt.length) {
                 // while context to send still...
                 if (!data.message.text.endsWith(typingString)) {
-                  // if bot stopped responding to previous message, send the next one
-                  // but first check if jail_context worked
-                  let currentTextTotal = data.message.text;
-                  if (checkJailbreakContext(currentTextTotal)) {
-                    throw new Error(`Jailbreak context failed, reply was: ${currentTextTotal}`)
-                  }
                   try {
                     await sendNextPrompt();
                   } catch (error) {
@@ -326,13 +232,6 @@ async function getWebSocketResponse(messages, streaming, retries) {
                 // all context sent, getting actual reply
                 if (!data.message.text.endsWith(typingString)) {
                   // when typing finished, this is the end of the message
-                  let currentTextTotal = data.message.text;
-                  if (checkJailbreak(currentTextTotal)) {
-                    throw new Error(`Jailbreak failed, reply was: ${currentTextTotal}`)
-                  }
-                  if (minimum_response_size && currentTextTotal.length < minimum_response_size) {
-                    throw new Error(`Retry, reply was too small: ${currentTextTotal}`)
-                  }
                   websocket.close(1000, 'Connection closed by client');
                   resolve(data.message.text);
                 } else {
@@ -376,16 +275,9 @@ async function getWebSocketResponse(messages, streaming, retries) {
               if (data.message) {
                 let senderId = data.message.user;
                 if (data.subtype === 'message_changed' && (!editting || (CLAUDE_MEMBER_ID && senderId === CLAUDE_MEMBER_ID))) {
-                  if (messageIndex < messages.length) {
+                  if (messageIndex < prompt.length) {
                     // while context to send still...
                     if (!data.message.text.endsWith(typingString)) {
-                      // if bot stopped responding to previous message, send the next one
-                      // but first check if jail_context worked
-                      let currentTextTotal = data.message.text;
-                      if (checkJailbreakContext(currentTextTotal)) {
-                        controller.enqueue(textResetSignal + JSON.stringify(retries));
-                        throw new Error(`Jailbreak context failed, reply was: ${currentTextTotal}`)
-                      }
                       try {
                         await sendNextPrompt();
                       } catch (error) {
@@ -397,15 +289,6 @@ async function getWebSocketResponse(messages, streaming, retries) {
                     // all context sent, getting actual reply
                     if (!data.message.text.endsWith(typingString)) {
                       // when typing finished, this is the end of the message
-                      let currentTextTotal = data.message.text;
-                      if (checkJailbreak(currentTextTotal)) {
-                        controller.enqueue(textResetSignal + JSON.stringify(retries));
-                        throw new Error(`Jailbreak failed, reply was: ${currentTextTotal}`)
-                      }
-                      if (minimum_response_size && currentTextTotal.length < minimum_response_size) {
-                        controller.enqueue(textResetSignal + JSON.stringify(retries));
-                        throw new Error(`Retry, reply was too small: ${currentTextTotal}`)
-                      }
                       let currentTextChunk = data.message.text.slice(currentSlice);
                       currentSlice = data.message.text.length;
                       console.log("Finished:", data.message.text.length, " characters");
@@ -453,46 +336,9 @@ async function getWebSocketResponse(messages, streaming, retries) {
   });
 }
 
-function deleteAllMessages(channelId) {
-  const requestOptions = {
-    method: 'POST',
-    path: `/api/conversations.history?channel=${channelId}`,
-    headers: {
-      ...headers,
-      ...form.getHeaders(),
-    },
-  };
-
-  const req = https.request(requestOptions, (res) => {
-    let data = '';
-    res.on('data', (chunk) => {
-      data += chunk;
-    });
-    res.on('end', () => {
-      const messages = JSON.parse(data).messages;
-      messages.forEach((message) => {
-        const deleteOptions = {
-          method: 'POST',
-          path: '/api/chat.delete',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        };
-        const deleteReq = https.request(deleteOptions, (deleteRes) => { });
-        deleteReq.write(JSON.stringify({ channel: channelId, ts: message.ts }));
-        deleteReq.end();
-      });
-    });
-  });
-
-  req.end();
-}
-
-
 module.exports = {
   sendMessage,
   sendChatReset,
   getWebSocketResponse,
   retryableWebSocketResponse,
-  textResetSignal,
 };

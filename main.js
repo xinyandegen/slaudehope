@@ -8,19 +8,12 @@ async function main() {
     const server = http.createServer(async (req, res) => {
         if (req.method.toUpperCase() === 'POST') {
             const body = await readBody(req, true);
-            console.log({ ...body, messages: "[look at tavern's log]"})
             const modelName = "Claude";
             const {
                 messages,
                 stream,
             } = body;
-            // console.log("messages\n",messages);
-            // remove trailing whitespace from messages
-            messages.forEach(message => {
-                console.log(message.content)
-                message.content = message.content.replace(/[^\S\r\n]+$/gm, "");
-            });
-            slices = splitJsonArray(messages, 12000);
+            slices = splitJsonArray(messages);
 
             const id = `chatcmpl-${(Math.random().toString(36).slice(2))}`;
             const created = Math.floor(Date.now() / 1000);
@@ -28,7 +21,6 @@ async function main() {
             try {
                 if (!stream) {
                     const result = await retryableWebSocketResponse(slices, stream);
-                    console.log(result)
                     res.setHeader('Content-Type', 'application/json');
                     res.write(JSON.stringify({
                         id, created,
@@ -95,7 +87,7 @@ async function main() {
     });
 
     server.listen(5004, '0.0.0.0', () => {
-        console.log(`proxy for Slack's claude-v1: 'http://127.0.0.1:5004/'`);
+        console.log(`Slaude Hope/Cope: 'http://127.0.0.1:5004/'`);
     });
 }
 

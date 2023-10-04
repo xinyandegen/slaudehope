@@ -7,7 +7,6 @@ const { TOKEN, COOKIE, TEAM_ID, CLAUDE,
   finish_message_chunk_with_this_role_only,
   when_msg_is_split_omit_role,
 } = require('./config');
-const { jail_context, include_assistant_tag } = require('./config');
 
 const wait = (duration) => {
   return new Promise((resolve) => {
@@ -16,7 +15,6 @@ const wait = (duration) => {
     }, duration);
   });
 };
-
 
 function preparePrompt(messages) {
   return messages.filter(m => m.content?.trim()).map(m => {
@@ -58,11 +56,117 @@ function preparePrompt(messages) {
 }
 
 function buildPrompt(messages) {
-  prompt = preparePrompt(messages);
+  let prompt = preparePrompt(messages);
+  let prompt_chunks = [];
   prompt = prompt.replace(/\n[ \t]*\n/g, '\n');
   prompt = prompt.replace(/\*/g, '');
-  return prompt;
-};
+  console.log("Reminder! Modify your prompts/JBs if you're triggering the Acceptable Use Policy warning!\nRefrain from using too much NSFW words as it will trigger the filter.");
+  let charInput = parseXML("char", prompt); //get Character Details with XML tag.
+  prompt = prompt.replace(charInput, "");
+  let scenarioInput = parseXML("scenario", prompt); //get Scenario Details with XML tag.
+  prompt = prompt.replace(scenarioInput, "");
+  let chatInput = parseXML("chat", prompt); //get Chat Details with XML tag.
+  prompt = prompt.replace(chatInput, "");
+  let requireInput = parseXML("requirements", prompt); //get Requirements Details with XML tag.
+  prompt = prompt.replace(requireInput, "");
+  let banInput = parseXML("ban", prompt); //get Ban Details with XML tag.
+  prompt = prompt.replace(banInput, "");
+  let ignoreInput = parseXML("math", prompt); //get Ignore Details with XML tag.
+  prompt = prompt.replace(ignoreInput, "");
+  //default instruction
+  let instructInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, avoid <ban>, and ignore <math>.";
+  //default split instruction
+  let splitInput = "Identify repeating phrases, dialogues, character actions, and ideas. Your response ONLY should be the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Simply ignore <math>.";
+  try{
+    prompt = prompt.replace(/^\s*[\r\n]/gm, '');
+    instructSplit = prompt.split('\n');
+    instructInput = instructSplit[0]; //get Main Instruction.
+    splitInput = instructSplit[1]; //get Split Instruction.
+    console.log("Custom JB detected.");
+  }
+  catch (err){
+    console.error("Error: " + err.message);
+  }
+ 
+  promptLength = ignoreInput.length + charInput.length + scenarioInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length;
+  if (promptLength > 13200){
+    promptLength += (ignoreInput.length*2) + splitInput.length;
+  }
+  console.log("Prompt Length:", promptLength);
+  try{
+    if (promptLength > 18000){ //Exceeds 18000 chars
+      throw new Error("Prompt exceeds 18000 chars! Lower your context size.");
+    }
+    else if (promptLength > 13200){ //Will split the message in two.
+      if (ignoreInput.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
+        throw new Error("Your character and scenario exceeds 13200 chars!");
+      }
+      if (ignoreInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
+        throw new Error("Your chat exceeds 13000 chars! Lower your context size.");
+      }
+      console.log("Prompt longer than 13200~ chars. Splitting...");
+      prompt_chunks.push(ignoreInput+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
+      prompt_chunks.push(ignoreInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+    }
+    else{
+      prompt_chunks.push(ignoreInput+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+    }
+  }
+  catch(error){
+    console.error("Error:", error.message);
+    return ['Say "Error: "'+error.message+'"'];
+  }
+  return prompt_chunks;
+      //These set of code used to split chats into two but Claude had a hard time remembering details due to more xml tags to think of.
+      /*else { //Splits chat since it has more space.
+        maxChatLength = (promptLength/2) - (ignoreInput.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length);
+        console.log("Splitting chat into those two prompts. Available "+ maxChatLength +" characters.");
+        //Split Chat into two.
+        chatInput = chatInput.replace("<chat>", "");
+        chatInput = chatInput.replace("</chat>", "");
+        let chatMessages = chatInput.split('\n');
+        let chatInputFirst = '<chat1>'; //declare <chat1>
+        let chatInputSecond = '<chat2>'; //declare <chat2>
+        let currentChat = chatInputFirst;
+        let ii = 0;
+        //Putting max messages possible on first message.
+        for (let i = 1; i < chatMessages.length - 1; i++) {
+          if (chatMessages[i].startsWith('A:') || chatMessages[i].startsWith('B:')) {
+            // Hit a new message, check if need to split
+            console.log(currentChat.length + chatMessages[i].length)
+            console.log(maxChatLength)
+            if (currentChat.length + chatMessages[i].length > maxChatLength) { //If it exceeds 12000 chars. Close chat.
+              chatInputFirst = currentChat + '\n</chat1>';
+              ii = i;
+              break;
+            }
+          }
+          currentChat += '\n' + chatMessages[i];
+        }
+        console.log("Added "+ii+" messages to <chat1>");
+        //Putting rest on chatInputSecond.
+        currentChat = chatInputSecond;
+        for (let i = ii; i < chatMessages.length - 1; i++) {
+          currentChat += '\n' + chatMessages[i];
+        }
+        chatInputSecond = currentChat + '\n</chat2>';
+        //Change requirements to account for two chat xml tags.
+        requireInput = requireInput.replace(`<chat>`, `<chat2>`);
+        requireInput = requireInput.replace(`<scenario>`, `<scenario>, and <chat1>`);
+        prompt_chunks.push(ignoreInput+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInputFirst+"\n"+splitInput+"\n"+ignoreInput);
+        prompt_chunks.push(ignoreInput+"\n"+chatInputSecond+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+      }*/
+}
+
+function parseXML(xmlLabel, p){
+  const regex = new RegExp(`<${xmlLabel}>([\\s\\S]*?)<\\/${xmlLabel}>`, 'g');
+  const matches = p.matchAll(regex);
+  let parsedValue = '';
+  for (const match of matches) {
+    parsedValue += match[0]; 
+  }
+  return parsedValue;
+}
 
 const readBody = (res, json) => new Promise((resolve, reject) => {
   let buffer = '';
@@ -82,154 +186,10 @@ const readBody = (res, json) => new Promise((resolve, reject) => {
   });
 })
 
-function getJailContext() {
-  return `\n${jail_context}`
-}
-
-function removeJailContextFromMessage(message) {
-  let escapedJailContext = getBlankPrompt();
-  return message.slice(0, message.length - escapedJailContext.length);
-}
-
 const headers = {
   'Cookie': `d=${COOKIE};`,
   'User-Agent':	'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0',
 }
-
-function splitMessageInTwo(text, maximumSplit, miminumSplit=500) {
-  // Split text in two, find the latest paragraph, or a newline, or just a sentence break, in this priority, to break it, worst case, use a space.
-  // Important: be VERY carefull not to break markdown formatting
-  // for example, you might find a \n\n, but you can't split there if it's inside "```" quotations
-  let textToSearch = text;
-  function splitIfFound(searchFunction, allowMarkdownInlineBreak = true, allowDelimiter = false) {
-    let textToSearch = text;
-    while (true) {
-      let i = searchFunction(textToSearch);
-      if (i !== -1 && !isInsideCodeBlock(textToSearch, i) &&
-        (allowMarkdownInlineBreak || !isInsideMarkdownInline(textToSearch, i)) &&
-        (allowDelimiter || !isInsideDelimiters(textToSearch, i)) &&
-        textToSearch.slice(0, i).length <= maximumSplit && textToSearch.slice(0, i).length > miminumSplit) {
-        return [text.slice(0, i), text.slice(i + 1)];
-      }
-      if (i === -1) break;
-      textToSearch = textToSearch.slice(0, i);
-    }
-  }
-  let result = null
-
-  function increasingList(X, Y) {
-    return Array.from({ length: Y - X + 1 }, (_, i) => X + i);
-  }
-  function decreasingList(Y, X) {
-    return Array.from({ length: Y - X + 1 }, (_, i) => Y - i);
-  }
-  function repeatCharacter(char, times) {
-    return char.repeat(times);
-  }
-  function markdownTitle(depth, allowMarkdownInlineBreak = true, allowDelimiter = false) {
-    result = splitIfFound(text => text.lastIndexOf('\n' + repeatCharacter('#', depth) + ' '), allowMarkdownInlineBreak, allowDelimiter);
-    if (result) return result;    
-  }
-
-  for (let allowDelimiter of [true, false]) {
-    for (let depth of increasingList(1,6)) {
-      // Markdown title break 
-      result = markdownTitle(depth, true, allowDelimiter);
-      if (result) return result;
-    }
-    // Check for paragraph break
-    result = splitIfFound(text => text.lastIndexOf('\n\n'), true, allowDelimiter);
-    if (result) return result;
-    // Newline break 
-    result = splitIfFound(text => text.lastIndexOf('\n'), true, allowDelimiter);
-    if (result) return result;
-    // Sentence break
-    result = splitIfFound(findLastSentenceBreak, false, allowDelimiter);
-    // Space break
-    result = splitIfFound(text => text.lastIndexOf(' '), false, allowDelimiter);
-    if (result) return result;
-  }
-  // Everything failed, split at maximum
-  return [text.slice(0, maximumSplit), text.slice(maximumSplit + 1)];
-}
-
-function isInsideDelimiters(text, index) {
-  const openDelimiters = /[\(\[\{<>]/g;
-  const closeDelimiters = /[\)\]\}<>]/g;
-  let openMatches = [];
-  let closeMatches = [];
-  let match;
-
-  // Find opening delimiters
-  while ((match = openDelimiters.exec(text)) !== null) {
-    openMatches.push(match);
-  }
-
-  // Find closing delimiters
-  while ((match = closeDelimiters.exec(text)) !== null) {
-    closeMatches.push(match);
-  }
-
-  // Check if index is between an opening and closing delimiter
-  for (let i = 0; i < openMatches.length; i++) {
-    for (let j = closeMatches.length - 1; j >= 0; j--) {
-      if (openMatches[i].index < index &&
-        index < closeMatches[j].index &&
-        (openMatches[i][0] === '(' && closeMatches[j][0] === ')') ||
-        (openMatches[i][0] === '[' && closeMatches[j][0] === ']') ||
-        (openMatches[i][0] === '{' && closeMatches[j][0] === '}')) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function isInsideMarkdownInline(text, index) {
-  // Find pairs of formatting characters and capture the text in between them
-  const format = /(\*|_|~){1,2}([\s\S]*?)\1{1,2}/gm;
-  let matches = [];
-  let match;
-  while ((match = format.exec(text)) !== null) {
-    matches.push(match);
-  }
-  // Check if index is between a pair of formatting characters
-  for (let i = 0; i < matches.length; i++) {
-    if (index > matches[i].index && index < matches[i].index + matches[i][0].length) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function isInsideCodeBlock(text, index) {
-  let textUpToIndex = text.slice(0, index);
-  let matches = textUpToIndex.match(/```/gm);
-  if (matches) {
-    let numDelimiters = matches.length;
-    return numDelimiters % 2 === 1;
-  }
-  return false;
-}
-
-function findLastSentenceBreak(text) {
-  let sentenceBreaks = /[.!?]$/gm;
-  let matches = text.match(sentenceBreaks);
-  if (matches) {
-    let lastIndex = 0;
-    for (let i = 0; i < matches.length; i++) {
-      lastIndex = text.lastIndexOf(matches[i]);
-    }
-    return lastIndex;
-  }
-  return -1;
-}
-
-function getMessageLength(msg) {
-  const m_txt = buildPrompt([msg])
-  return m_txt.length
-}
-
 
 function isMsgChatExample(msg) {
   if (msg.name && msg.name.startsWith("example_")) {
@@ -242,7 +202,6 @@ function fixExamples(jsonArray) {
   if (jsonArray.length == 0) {
     return [];
   }
-  console.log("Checking for empty reply examples");
   let current_examples = 0;
   let currentMsg = jsonArray[0];
   for (let i = 0; i < jsonArray.length; i++) {
@@ -255,14 +214,12 @@ function fixExamples(jsonArray) {
         if (!isNextOneExample) {
           // check if current message is from user, if yes, remove it as it has no response from AI
           if (name === 'user') {
-            console.log("Removed empty reply example of i =", i);
             jsonArray.splice(i, 1);
             // DO NOT i--; // It will skip any [Start Chat] and thats ok
             // if you i--; then the current logic below breaks
             current_examples--;
           }
           if (current_examples == 0) {
-            console.log("completely empty example, remove [Start chat] before this");
             // empty example, remove [Start chat] before this
             jsonArray.splice(i - 1, 1);
             i--; // just removed an element from list before i, this is so you don't skip an element
@@ -274,7 +231,6 @@ function fixExamples(jsonArray) {
       if (currentMsg.role != 'system') {
         // should be end of examples. the initial prompt is given by system, and examples are handled
         // the only thing remaning is actual conversation
-        console.log("Finshed examples at i =", i)
         break;
       }
       current_examples = 0;
@@ -283,7 +239,7 @@ function fixExamples(jsonArray) {
   return jsonArray;
 }
 
-function splitJsonArray(jsonArray, maxLength) {
+function splitJsonArray(jsonArray) {
   jsonArray = fixExamples(jsonArray);
   const result = [];
   let currentChunk = [];
@@ -291,19 +247,8 @@ function splitJsonArray(jsonArray, maxLength) {
 
   const addObjectToChunk = (object, chunk) => {
     chunk.push(object);
-    // + 2 added because `buildPrompt` uses `.join('\n\n');`
-    return currentLength + getMessageLength(object) + 2;
+    return currentLength;
   };
-
-  const appendTextToContent = (object, text) => {
-    const newObj = JSON.parse(JSON.stringify(object));
-    newObj.content += text;
-    return newObj;
-  };
-
-  const assistant = `\n\n${rename_roles['assistant']}: `;
-  const user = `\n\n${rename_roles['user']}: `;
-  const textOverhead = Math.max(assistant.length, user.length, getJailContext().length);
   if (jsonArray.length == 0) {
     return [];
   }
@@ -314,91 +259,17 @@ function splitJsonArray(jsonArray, maxLength) {
     if (!modifiedObj) {
       currentMsg = jsonArray[i];
     }
-    prevIdx = i;
-    const msgLength = getMessageLength(currentMsg) + 2;
-    console.log(currentLength+" "+msgLength+" "+textOverhead);
+    prevIdx = i;;
     if (modifiedObj) {
       modifiedObj = false;
     }
     currentLength = addObjectToChunk(currentMsg, currentChunk);
-    /*if (currentLength + msgLength + textOverhead <= 12000) {
-      if (modifiedObj) {
-        modifiedObj = false;
-      }
-      currentLength = addObjectToChunk(currentMsg, currentChunk);
-    } else {
-      console.log("---- over maxLength  i=", i, "  currentMsg.role", currentMsg.role, "currentChunk.length=", currentChunk.length)
-      if (currentChunk.length > 0) {
-        const has_denied_end_of_chunk_role = finish_message_chunk_with_this_role_only &&
-          (
-          !currentChunk[currentChunk.length - 1].role.endsWith(finish_message_chunk_with_this_role_only)) && (
-            // if the next one is also denied, this codition entirely and allow the msg to end on that role
-            !currentMsg.role.endsWith(finish_message_chunk_with_this_role_only)
-          )
-        if (!has_denied_end_of_chunk_role || currentChunk.length < 2) {
-          currentChunk[currentChunk.length - 1] = appendTextToContent(
-            currentChunk[currentChunk.length - 1], getJailContext())
-          result.push(currentChunk);
-
-          currentChunk = [];
-          currentLength = 0;
-          i--;
-        } else {
-          console.log("Adding last chunk's msg to next one instead (end of chunk's msg had role denied by finish_message_chunk_with_this_role_only in config)")
-          currentChunk.pop();
-            currentChunk[currentChunk.length - 1] = appendTextToContent(
-            currentChunk[currentChunk.length - 1], getJailContext())
-          result.push(currentChunk);
-          currentChunk = [];
-          currentLength = 0;
-          // the other one goes to next loop, crazy I know
-          i -= 2; // critical so you don't go to next obj, and process lastObjectInChunk instead
-          // which is 1 before current `i`, but the for loop adds one more, so subtract 2
-        }
-      } else {
-        console.log("Message too big! It doesn't fit in a single chat message!", currentMsg.content.length)
-        let splitContent = splitMessageInTwo(currentMsg.content, maxLength - textOverhead)
-        let msgFirstSplit = { ...currentMsg, content: splitContent[0] };
-
-        const msgFirstSplitWithJail = appendTextToContent(msgFirstSplit, getJailContext());
-        currentChunk.push(msgFirstSplitWithJail);
-        result.push(currentChunk);
-        currentChunk = [];
-        currentLength = 0;
-        // the other one goes to next loop, crazy I know
-        // I don't add her to the next chunk here because it could hypothetically need a split too
-        let role = "SPLIT_ROLE";
-        if (!when_msg_is_split_omit_role) {
-          role = role + currentMsg.role;
-        }
-        currentMsg = { ...currentMsg, content: splitContent[1], role: role };
-        modifiedObj = true;
-        i--; // critical so you don't go to next obj, and process this one instead
-        console.log("split into ", getMessageLength(msgFirstSplit), getMessageLength(currentMsg))
-      }
-    }*/
   }
-
   if (currentChunk.length > 0) {
     result.push(currentChunk);
   }
-
-  if (include_assistant_tag){
-    const lastChunk = result[result.length - 1];
-    const lastObjectInLastChunk = lastChunk[lastChunk.length - 1];
-    const lastObjectWithAssistant = appendTextToContent(lastObjectInLastChunk, assistant);
-    const lastObjectWithAssistantLength = getMessageLength(lastObjectWithAssistant) + 2;
-
-    if (currentLength - (getMessageLength(lastObjectInLastChunk) + 2) + lastObjectWithAssistantLength <= maxLength) {
-      lastChunk[lastChunk.length - 1] = lastObjectWithAssistant;
-    } else {
-      console.warn("Something is very wrong")
-    }
-  }
   return result;
 }
-
-
   
 function convertToUnixTime(date) {
   const unixTime = Math.floor(date.getTime() / 1000);
@@ -441,5 +312,5 @@ module.exports = {
   createBaseForm,
   splitJsonArray,
   wait,
-  removeJailContextFromMessage,
+  parseXML,
 };
