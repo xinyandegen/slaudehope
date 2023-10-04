@@ -1,7 +1,7 @@
 # Hoping with Slaude
 #### Spermack, 3.4-4K Context, Unfiltered Response from Claude
 ## Changes from Spermack
-Spermack is modified so it can only send up to 2 messages to Claude DMs. If the context size exceeds 3,200, It will split <char>, and <scenario>, from <chat>. I tried to add <chat1> and <chat2> and put <chat1> to <char> and <scenario>'s message if it didn't fill the max char count but Claude tends to forget more details due to excessive XML tags to keep track off. Therefore, the chat context can reach up to 3,000 context while still have space for the character and scenario details.
+Spermack is modified so it can only send up to 2 messages to Claude DMs. If the context size exceeds 3,200, It will split `<char>`, and `<scenario>`, from `<chat>`. I tried to add `<chat1>` and `<chat2>` and put `<chat1>` to `<char>` and `<scenario>`'s message if it didn't fill the max char count but Claude tends to forget more details due to excessive XML tags to keep track off. Therefore, the chat context can reach up to 3,000 context while still have space for the character and scenario details.
 
 
 ## Claude in Slack Set-Up
