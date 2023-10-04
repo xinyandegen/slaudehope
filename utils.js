@@ -215,13 +215,15 @@ function fixExamples(jsonArray) {
       i--;
     }
   }
-  let indexSystem = jsonArray.findIndex(item => item.name === 'example_assistant');
-  jsonArray[indexSystem].content = clumpExample;
-  jsonArray[indexSystem].name = "example_system";
-  for (let i = 0; i < jsonArray.length; i++) {
-  	if(jsonArray[i].name == "example_assistant"){
-    	jsonArray.splice(i, 1);
-      i--;
+  if(jsonArray.some(item => item.name === 'example_assistant')){
+    let indexSystem = jsonArray.findIndex(item => item.name === 'example_assistant');
+    jsonArray[indexSystem].content = clumpExample;
+    jsonArray[indexSystem].name = "example_system";
+    for (let i = 0; i < jsonArray.length; i++) {
+      if(jsonArray[i].name == "example_assistant"){
+        jsonArray.splice(i, 1);
+        i--;
+      }
     }
   }
   return jsonArray;
