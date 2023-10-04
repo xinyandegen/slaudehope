@@ -1,17 +1,7 @@
 const https = require('https');
 const WebSocket = require('ws');
-
-const { TOKEN, TEAM_ID, CLAUDE_MEMBER_ID } = require('./config');
-const {
-  jail_context_retry_attempts,
-  jail_retry_attempts,
-  retry_delay,
-  minimum_response_size_retry_attempts,
-} = require('./config');
+const { TOKEN, TEAM_ID } = require('./config');
 const { readBody, headers, createBaseForm, convertToUnixTime, currentTime, buildPrompt,} = require('./utils');
-
-
-const editting = false; // useless feature (for now)
 
 function Uuidv4() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -104,8 +94,8 @@ async function sendChatReset() {
   });
 }
 
-async function streamResponse(slices, sendChunks, retries) {
-  const resultStream = await getWebSocketResponse(slices, true, retries);
+async function streamResponse(slices, sendChunks) {
+  const resultStream = await getWebSocketResponse(slices, true);
   const reader = resultStream.getReader();
   let nextChunk = await reader.read();
   while (true) {
@@ -117,48 +107,19 @@ async function streamResponse(slices, sendChunks, retries) {
   }
 }
 
-async function retryableWebSocketResponse(slices, sendChunks, retries = {
-  "Jailbreak context failed": jail_context_retry_attempts,
-  "Jailbreak failed": jail_retry_attempts,
-  "Retry, reply was too small": minimum_response_size_retry_attempts,
-}, retryDelay = retry_delay) {
+async function retryableWebSocketResponse(slices, sendChunks) {
   try {
     if (sendChunks) {
-      return await streamResponse(slices, sendChunks, retries = retries);
+      return await streamResponse(slices, sendChunks);
     } else {
-      return await getWebSocketResponse(slices, sendChunks, retries = retries);
+      return await getWebSocketResponse(slices, sendChunks);
     }
   } catch (error) {
-    for (let key in retries) {
-      let retryOnErrorString = key;
-      let retryCount = retries[key]
-      if (retryCount <= 0) {
-        continue;
-      }
-      if (error.message.includes(retryOnErrorString)) {
-        console.log(retryOnErrorString, "retries left:", retryCount);
-        console.log("+ Retrying: retryable error found while attempted to streamResponse:", retryOnErrorString);
-        if (retryDelay) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-        }
-        retries[retryOnErrorString] = retries[retryOnErrorString] - 1;
-        return retryableWebSocketResponse(slices, sendChunks, retries, retryDelay);
-      }
+    console.error("Error: "+error.message);
     }
-
-    for (let retryOnErrorString in retries) {
-      if (error.message.includes(retryOnErrorString)) {
-        if (retries[retryOnErrorString] <= 0) {
-          throw new Error("Retries exhausted");
-        }
-      }
-    }
-    console.trace(error);
-    throw new Error(error.message + "| " + "retryableWebSocketResponse");
-  }
 }
 
-async function getWebSocketResponse(messages, streaming, retries) {
+async function getWebSocketResponse(messages, streaming) {
   return new Promise(async (resolve, reject) => {
     try {
       await sendChatReset();
@@ -216,8 +177,7 @@ async function getWebSocketResponse(messages, streaming, retries) {
           const data = JSON.parse(message);
           // Extract the sender ID from the payload
           if (data.message) {
-            let senderId = data.message.user;
-            if (data.subtype === 'message_changed' && (!editting || (CLAUDE_MEMBER_ID && senderId === CLAUDE_MEMBER_ID))) {
+            if (data.subtype === 'message_changed') {
               if (messageIndex < prompt.length) {
                 // while context to send still...
                 if (!data.message.text.endsWith(typingString)) {
@@ -239,11 +199,6 @@ async function getWebSocketResponse(messages, streaming, retries) {
                   let currentTextTotal = data.message.text.slice(0, actualLength);
                   console.log(`${currentTime()} fetched ${currentTextTotal.length} characters...`);
                 }
-              }
-            }
-            else if (data.subtype === 'message_changed') {
-              if (editting && !CLAUDE_MEMBER_ID) {
-                console.warn("editting is set to true, but you forgot to set `CLAUDE_MEMBER_ID`, are you stupid or something?")
               }
             }
           }
@@ -273,8 +228,7 @@ async function getWebSocketResponse(messages, streaming, retries) {
               const data = JSON.parse(message);
               // Extract the sender ID from the payload
               if (data.message) {
-                let senderId = data.message.user;
-                if (data.subtype === 'message_changed' && (!editting || (CLAUDE_MEMBER_ID && senderId === CLAUDE_MEMBER_ID))) {
+                if (data.subtype === 'message_changed') {
                   if (messageIndex < prompt.length) {
                     // while context to send still...
                     if (!data.message.text.endsWith(typingString)) {
@@ -304,11 +258,6 @@ async function getWebSocketResponse(messages, streaming, retries) {
                       currentTextChunk = currentTextChunk.replace(/\*/g, '');
                       controller.enqueue(currentTextChunk);
                     }
-                  }
-                }
-                else if (data.subtype === 'message_changed') {
-                  if (editting && !CLAUDE_MEMBER_ID) {
-                    console.warn("`editting` is set to true, but you forgot to set `CLAUDE_MEMBER_ID`, are you stupid or something?")
                   }
                 }
               }

@@ -1,12 +1,6 @@
 const FormData = require('form-data');
 
-const { TOKEN, COOKIE, TEAM_ID, CLAUDE,
-  role_example_prefix_string_to_use,
-  role_example_suffix_string_to_use,
-  rename_roles,
-  finish_message_chunk_with_this_role_only,
-  when_msg_is_split_omit_role,
-} = require('./config');
+const { TOKEN, COOKIE, CLAUDE, rename_roles, } = require('./config');
 
 const wait = (duration) => {
   return new Promise((resolve) => {
@@ -20,11 +14,6 @@ function preparePrompt(messages) {
   return messages.filter(m => m.content?.trim()).map(m => {
     role = m.role;
     let author = '';
-    let split = false;
-    if (m.role.startsWith('SPLIT_ROLE')) {
-      role = role.slice('SPLIT_ROLE'.length,);
-      split = true;
-    }
     let is_example = false;
     if (m.name && m.name.startsWith("example_")) {
       is_example = true;
@@ -37,7 +26,7 @@ function preparePrompt(messages) {
           if (is_example) {
             let name = m.name.slice("example_".length,)
             if (name in rename_roles) {
-              author = role_example_prefix_string_to_use + rename_roles[name] + role_example_suffix_string_to_use;
+              author = rename_roles[name];
             }
           }
         } else {
@@ -191,83 +180,69 @@ const headers = {
   'User-Agent':	'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0',
 }
 
-function isMsgChatExample(msg) {
-  if (msg.name && msg.name.startsWith("example_")) {
-    return msg.name.slice("example_".length,);
+function quoteFix(msg) {
+	let doubleQuotes = /^"(.*)"$/;
+  let singleQuotes = /^(["'])(.*)\1$/;
+  if(doubleQuotes.test(msg)){
+     return(msg);
   }
-  return false;
+  else if(singleQuotes.test(msg)){
+     return(msg.replace("'", '"'));
+  }
+  else{
+     return('"'+msg+'"');
+  }
 }
 
+
 function fixExamples(jsonArray) {
-  if (jsonArray.length == 0) {
-    return [];
-  }
-  let current_examples = 0;
-  let currentMsg = jsonArray[0];
+  let clumpExample = ""
   for (let i = 0; i < jsonArray.length; i++) {
-    currentMsg = jsonArray[i];
-    let name = isMsgChatExample(currentMsg)
-    if (name) {
-      current_examples++;
-      if (i + 1 < jsonArray.length) {
-        let isNextOneExample = isMsgChatExample(jsonArray[i + 1])
-        if (!isNextOneExample) {
-          // check if current message is from user, if yes, remove it as it has no response from AI
-          if (name === 'user') {
-            jsonArray.splice(i, 1);
-            // DO NOT i--; // It will skip any [Start Chat] and thats ok
-            // if you i--; then the current logic below breaks
-            current_examples--;
-          }
-          if (current_examples == 0) {
-            // empty example, remove [Start chat] before this
-            jsonArray.splice(i - 1, 1);
-            i--; // just removed an element from list before i, this is so you don't skip an element
-          }
-          current_examples = 0;
-        }
+  	if(jsonArray[i].name == "example_assistant"){
+      if(clumpExample == ""){
+      	clumpExample = "Example Speech:\n"+quoteFix(jsonArray[i].content);
       }
-    } else {
-      if (currentMsg.role != 'system') {
-        // should be end of examples. the initial prompt is given by system, and examples are handled
-        // the only thing remaning is actual conversation
-        break;
+      else{
+      	clumpExample = clumpExample + "\n"+ quoteFix(jsonArray[i].content);
       }
-      current_examples = 0;
+    }
+  	if(jsonArray[i].name == "example_user"){
+    	jsonArray.splice(i, 1);
+      i--;
+    }
+    if(jsonArray[i].role == "system" && jsonArray[i].content == "Example speech:"){
+    	jsonArray.splice(i, 1);
+      i--;
+    }
+  }
+  let indexSystem = jsonArray.findIndex(item => item.name === 'example_assistant');
+  jsonArray[indexSystem].content = clumpExample;
+  jsonArray[indexSystem].name = "example_system";
+  for (let i = 0; i < jsonArray.length; i++) {
+  	if(jsonArray[i].name == "example_assistant"){
+    	jsonArray.splice(i, 1);
+      i--;
     }
   }
   return jsonArray;
 }
 
 function splitJsonArray(jsonArray) {
+  if (jsonArray.length == 0) {
+    return [];
+  }
   jsonArray = fixExamples(jsonArray);
   const result = [];
   let currentChunk = [];
   let currentLength = 0;
-
   const addObjectToChunk = (object, chunk) => {
     chunk.push(object);
     return currentLength;
   };
-  if (jsonArray.length == 0) {
-    return [];
-  }
-  let currentMsg = jsonArray[0];
-  let prevIdx = 0;
-  let modifiedObj = false;
   for (let i = 0; i < jsonArray.length; i++) {
-    if (!modifiedObj) {
-      currentMsg = jsonArray[i];
-    }
-    prevIdx = i;;
-    if (modifiedObj) {
-      modifiedObj = false;
-    }
-    currentLength = addObjectToChunk(currentMsg, currentChunk);
+    currentLength = addObjectToChunk(jsonArray[i], currentChunk);
   }
-  if (currentChunk.length > 0) {
-    result.push(currentChunk);
-  }
+  result.push(currentChunk);
   return result;
 }
   
@@ -298,9 +273,6 @@ const currentTime = () => {
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
 };
-
-// Add the utility functions here
-// e.g. escapePrompt, readBody, preparePrompt, currentTime, headers, convertToUnixTime, createBaseForm
 
 module.exports = {
   buildPrompt,
