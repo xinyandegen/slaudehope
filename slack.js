@@ -63,13 +63,10 @@ async function getFilter(msg, fMessage){
     if(fMessage.length == 0){
       if(slackfilterMessage.includes("&gt; _*Please note:*")){
         if(slackfilterMessage.includes("math")){
-          fMessage += "Claude is not skilled at solving math problems.";
+          fMessage += "\u001b[32mPlease note: Claude is not skilled at solving math problems.\u001b[0m";
         }
         if(slackfilterMessage.includes("violate")){
-          fMessage += "This request may violate our Acceptable Use Policy.\nAdd math bloat to your prompts or reduce your NSFW words.";
-        }
-        if(slackfilterMessage==undefined){
-          fMessage += "Different Filter Triggered.";
+          fMessage += "\u001b[31mPlease note: This request may violate our Acceptable Use Policy.\n\u001b[36mAdd math bloat to your prompts or reduce your NSFW words.\u001b[0m";
         }
       }
     }
@@ -194,8 +191,6 @@ async function getWebSocketResponse(messages, streaming) {
     let typingString = "\n\n_Typing…_";
     let filterMessage = "";
     if (!streaming) {
-      console.log("\n=== Receiving Message ===");
-      console.log("Streaming Disabled. Waiting for the response to finish...");
       // resolve the full text at the end only
       websocket.on('message', async (message) => {
         try {
@@ -204,27 +199,26 @@ async function getWebSocketResponse(messages, streaming) {
           // Extract the sender ID from the payload
           if (data.message) {
             if (data.subtype === 'message_changed') {
-              if (messageIndex <= prompt.length) {
-                if (messageIndex == prompt.length){
+              if (messageIndex < prompt.length) {
+                // while context to send still...
+                if (!data.message.text.endsWith(typingString)) {
+                  console.log("\n=== Receiving Confirmation ===");
+                  try {
+                    console.log(filterMessage);
+                    await sendNextPrompt();
+                    filterMessage = "";
+                  } catch (error) {
+                    console.trace(error);
+                    throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
+                  }
+                }
+              } else {
+                if (messageIndex == prompt.length) {
                   console.log("\n=== Receiving Message ===");
-                  console.log("Streaming Enabled. Streaming Response...");
-                  console.log("Please Note:", filterMessage);
+                  console.log("Streaming Disabled. Waiting for the response to finish...");
+                  console.log(filterMessage);
                   messageIndex++;
                 }
-                else{
-                  // while context to send still...
-                  if (!data.message.text.endsWith(typingString)) {
-                    try {
-                      console.log("Please Note:", filterMessage);
-                      await sendNextPrompt();
-                      filterMessage = "";
-                    } catch (error) {
-                      console.trace(error);
-                      throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
-                    }
-                  }
-                } 
-              } else {
                 // all context sent, getting actual reply
                 if (!data.message.text.endsWith(typingString)) {
                   // when typing finished, this is the end of the message
@@ -270,29 +264,27 @@ async function getWebSocketResponse(messages, streaming) {
               filterMessage = await getFilter(data, filterMessage);
               if (data.message) {
                 if (data.subtype === 'message_changed') {
-                  if (messageIndex <= prompt.length) {
-                    if (messageIndex == prompt.length){
-                      console.log("\n=== Receiving Message ===");
-                      console.log("Streaming Enabled. Streaming Response...");
-                      console.log("Please Note:", filterMessage);
-                      messageIndex++;
-                    }
-                    else{
-                      // while context to send still...
+                  if (messageIndex < prompt.length) {
+                    // while context to send still...
+                    if (!data.message.text.endsWith(typingString)) {
                       console.log("\n=== Receiving Confirmation ===");
-                      if (!data.message.text.endsWith(typingString)) {
-                        try {
-                          console.log("Please Note:", filterMessage);
-                          await sendNextPrompt();
-                          filterMessage = "";
-                        } catch (error) {
-                          console.trace(error);
-                          throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
-                        }
+                      try {
+                        console.log(filterMessage);
+                        await sendNextPrompt();
+                        filterMessage = "";
+                      } catch (error) {
+                        console.trace(error);
+                        throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
                       }
                     }
                   } 
                   else {
+                    if (messageIndex == prompt.length){
+                      console.log("\n=== Receiving Message ===");
+                      console.log("Streaming Enabled. Streaming Response...");
+                      console.log(filterMessage);
+                      messageIndex++;
+                    }
                     // all context sent, getting actual reply
                     if (!data.message.text.endsWith(typingString)) {
                       // when typing finished, this is the end of the message
