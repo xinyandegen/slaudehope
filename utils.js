@@ -50,63 +50,73 @@ function buildPrompt(messages) {
   let prompt_chunks = [];
   prompt = prompt.replace(/\n[ \t]*\n/g, '\n');
   prompt = prompt.replace(/\*/g, '');
-  let charInput = parseXML("char", prompt); //get Character Details with XML tag.
-  prompt = prompt.replace(charInput, "");
-  let scenarioInput = parseXML("scenario", prompt); //get Scenario Details with XML tag.
-  prompt = prompt.replace(scenarioInput, "");
-  let chatInput = parseXML("chat", prompt); //get Chat Details with XML tag.
-  prompt = prompt.replace(chatInput, "");
-  let requireInput = parseXML("requirements", prompt); //get Requirements Details with XML tag.
-  prompt = prompt.replace(requireInput, "");
-  let banInput = parseXML("ban", prompt); //get Ban Details with XML tag.
-  prompt = prompt.replace(banInput, "");
-  let ignoreInput = parseXML("math", prompt); //get Ignore Details with XML tag.
-  prompt = prompt.replace(ignoreInput, "");
-  //default instruction
-  let instructInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, avoid <ban>, and ignore <math>.";
-  //default split instruction
-  let splitInput = "Identify repeating phrases, dialogues, character actions, and ideas. Your response ONLY should be the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Simply ignore <math>.";
   try{
-    prompt = prompt.replace(/^\s*[\r\n]/gm, '');
-    instructSplit = prompt.split('\n');
-    instructInput = instructSplit[0]; //get Main Instruction.
-    splitInput = instructSplit[1]; //get Split Instruction.
-    console.log("Custom JB detected.");
+    let charInput = parseXML("char", prompt); //get Character Details with XML tag.
+    prompt = prompt.replace(charInput, "");
+    let scenarioInput = parseXML("scenario", prompt); //get Scenario Details with XML tag.
+    prompt = prompt.replace(scenarioInput, "");
+    let chatInput = parseXML("chat", prompt); //get Chat Details with XML tag.
+    prompt = prompt.replace(chatInput, "");
+    let requireInput = parseXML("requirements", prompt); //get Requirements Details with XML tag.
+    prompt = prompt.replace(requireInput, "");
+    let banInput = parseXML("ban", prompt); //get Ban Details with XML tag.
+    prompt = prompt.replace(banInput, "");
+    let ignoreInput = parseXML("math", prompt); //get Ignore Details with XML tag.
+    prompt = prompt.replace(ignoreInput, "");
+    //default instruction
+    let instructInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, avoid <ban>, and ignore <math>.";
+    //default split instruction
+    let splitInput = "Identify repeating phrases, dialogues, character actions, and ideas. Your response ONLY should be the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Simply ignore <math>.";
+    try{
+      prompt = prompt.replace(/^\s*[\r\n]/gm, '');
+      instructSplit = prompt.split('\n');
+      instructInput = instructSplit[0]; //get Main Instruction.
+      splitInput = instructSplit[1]; //get Split Instruction.
+      console.log("Custom JB detected.");
+    }
+    catch (err){
+      console.error("Error: " + err.message);
+      return ["Your custom jailbreak is not working. Please make sure to reserve the last two lines in your jailbreak to main and split instruction. Follow the rentry guide: https://rentry.org/slaudehope"];
+    }
+    let testLength = [charInput,scenarioInput,chatInput,requireInput,banInput,ignoreInput,instructInput,splitInput]
+    if (testLength.some(s => s.length === 0)){
+      throw new Error("Your prompt is not formatted correctly. Follow the rentry guide: https://rentry.org/slaudehope");
+    }
+    promptLength = charInput.length + scenarioInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length;
+    if (promptLength > 13200){
+      promptLength += ignoreInput.length + splitInput.length;
+    }
+    console.log("Prompt Length:", promptLength);
+    try{
+      if (promptLength > 18000){ //Exceeds 18000 chars
+        throw new Error("Prompt exceeds 18000 chars! Lower your context size.");
+      }
+      else if (promptLength > 13200){ //Will split the message in two.
+        if (charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
+          throw new Error("Your character and scenario exceeds 13200 chars!");
+        }
+        if (chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
+          throw new Error("Your chat exceeds 13000 chars! Lower your context size.");
+        }
+        console.log("Prompt longer than 13200~ chars. Splitting...");
+        prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
+        prompt_chunks.push(chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+      }
+      else{
+        prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+      }
+      console.log("Prompt Finished.")
+      }
+      catch(error){
+        console.error("Error:", error.message);
+        return ['Say "Error: "'+error.message+'"'];
+      }
+      return prompt_chunks;
   }
   catch (err){
-    console.error("Error: " + err.message);
+    console.error("Prompt Building Failed:", err.message);
+    return ['Please respond with this: "Your prompt is not formatted correctly. Follow the rentry guide: https://rentry.org/slaudehope"'];
   }
- 
-  promptLength = charInput.length + scenarioInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length;
-  if (promptLength > 13200){
-    promptLength += ignoreInput.length + splitInput.length;
-  }
-  console.log("Prompt Length:", promptLength);
-  try{
-    if (promptLength > 18000){ //Exceeds 18000 chars
-      throw new Error("Prompt exceeds 18000 chars! Lower your context size.");
-    }
-    else if (promptLength > 13200){ //Will split the message in two.
-      if (charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
-        throw new Error("Your character and scenario exceeds 13200 chars!");
-      }
-      if (chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
-        throw new Error("Your chat exceeds 13000 chars! Lower your context size.");
-      }
-      console.log("Prompt longer than 13200~ chars. Splitting...");
-      prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
-      prompt_chunks.push(chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
-    }
-    else{
-      prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
-    }
-    console.log("Prompt Finished.")
-  }
-  catch(error){
-    console.error("Error:", error.message);
-    return ['Say "Error: "'+error.message+'"'];
-  }
-  return prompt_chunks;
       //These set of code used to split chats into two but Claude had a hard time remembering details due to more xml tags to think of.
       /*else { //Splits chat since it has more space.
         maxChatLength = (promptLength/2) - (ignoreInput.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length);
