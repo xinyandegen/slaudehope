@@ -36,7 +36,7 @@ async function sendMessage(message) {
 
     const req = https.request(`https://${TEAM_ID}.slack.com/api/chat.postMessage`, options, async (res) => {
       try {
-        console.log("Length: ", blocks_txt.length);
+        console.log(blocks_txt.length, "characters");
         const response = await readBody(res, true);
         if (!response.ok) {
           reject(new Error("message response:" + response.error.toString() + "\nrequest:" + form.getBuffer() + "\n"));
@@ -55,6 +55,29 @@ async function sendMessage(message) {
 
     form.pipe(req);
   });
+}
+
+async function getFilter(msg, fMessage){
+  if (msg.type == "desktop_notification") {
+    let slackfilterMessage = msg.content;
+    if(fMessage.length == 0){
+      if(slackfilterMessage.includes("&gt; _*Please note:*")){
+        if(slackfilterMessage.includes("math")){
+          fMessage += "Claude is not skilled at solving math problems.";
+        }
+        if(slackfilterMessage.includes("violate")){
+          fMessage += "This request may violate our Acceptable Use Policy.\nAdd math bloat to your prompts or reduce your NSFW words.";
+        }
+        if(slackfilterMessage==undefined){
+          fMessage += "Different Filter Triggered.";
+        }
+      }
+    }
+    return fMessage;
+  }
+  else{
+    return fMessage;
+  }
 }
 
 async function sendChatReset() {
@@ -135,20 +158,20 @@ async function getWebSocketResponse(messages, streaming) {
 
     const waitForConnection = new Promise((connectionResolve) => {
       websocket.on('open', () => {
-        console.log('Connected to Slack.');
+        console.log('\n=== Connected to Slack ===');
         connectionResolve();
       });
     });
 
     await waitForConnection;
-
     let messageIndex = 0;
     let sentTs = null;
     prompt = buildPrompt(messages[0]);
     const sendNextPrompt = async () => {
       if (messageIndex < prompt.length) {
+        console.log("\n=== Sending Prompt ===")
         const chunk = prompt[messageIndex];
-        console.log("Sending Prompt %d/%d", messageIndex+1, prompt.length);
+        console.log("Sending %d/%d", messageIndex+1, prompt.length);
         try {
           response = await sendMessage(chunk);
           sentTs = response.ts;
@@ -156,7 +179,7 @@ async function getWebSocketResponse(messages, streaming) {
           console.trace(error.stack);
           throw (new Error(error.message + "| " + `getWebSocketResponse: ${error.message}`))
         }
-        console.log("Sent Prompt %d/%d", messageIndex+1, prompt.length);
+        console.log("Sent %d/%d", messageIndex+1, prompt.length);
         messageIndex++;
       }
     };
@@ -169,35 +192,49 @@ async function getWebSocketResponse(messages, streaming) {
     }
 
     let typingString = "\n\n_Typing…_";
-
+    let filterMessage = "";
     if (!streaming) {
+      console.log("\n=== Receiving Message ===");
+      console.log("Streaming Disabled. Waiting for the response to finish...");
       // resolve the full text at the end only
       websocket.on('message', async (message) => {
         try {
           const data = JSON.parse(message);
+          filterMessage = await getFilter(data, filterMessage);
           // Extract the sender ID from the payload
           if (data.message) {
             if (data.subtype === 'message_changed') {
-              if (messageIndex < prompt.length) {
-                // while context to send still...
-                if (!data.message.text.endsWith(typingString)) {
-                  try {
-                    await sendNextPrompt();
-                  } catch (error) {
-                    console.trace(error);
-                    throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
-                  }
+              if (messageIndex <= prompt.length) {
+                if (messageIndex == prompt.length){
+                  console.log("\n=== Receiving Message ===");
+                  console.log("Streaming Enabled. Streaming Response...");
+                  console.log("Please Note:", filterMessage);
+                  messageIndex++;
                 }
+                else{
+                  // while context to send still...
+                  if (!data.message.text.endsWith(typingString)) {
+                    try {
+                      console.log("Please Note:", filterMessage);
+                      await sendNextPrompt();
+                      filterMessage = "";
+                    } catch (error) {
+                      console.trace(error);
+                      throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
+                    }
+                  }
+                } 
               } else {
                 // all context sent, getting actual reply
                 if (!data.message.text.endsWith(typingString)) {
                   // when typing finished, this is the end of the message
                   websocket.close(1000, 'Connection closed by client');
                   resolve(data.message.text);
+                  console.log("Finished Streaming.", data.message.text.length, "characters received.");
                 } else {
                   let actualLength = data.message.text.length - typingString.length;
                   let currentTextTotal = data.message.text.slice(0, actualLength);
-                  console.log(`${currentTime()} fetched ${currentTextTotal.length} characters...`);
+                  console.log(currentTextTotal.length, "characters received.");
                 }
               }
             }
@@ -208,7 +245,10 @@ async function getWebSocketResponse(messages, streaming) {
           reject(new Error(error.message + "| " + "getWebSocketResponse: "))
         }
       });
-
+      websocket.on('desktop_notification', async(data) => {
+        const warningData = JSON.parse(data);
+        console.log(getWarningMessage(warningData.content));
+      });
       websocket.on('error', (error) => {
         console.trace(error);
         controller.error(new Error(error.message + "| " + 'WebSocket error'));
@@ -227,25 +267,38 @@ async function getWebSocketResponse(messages, streaming) {
             try {
               const data = JSON.parse(message);
               // Extract the sender ID from the payload
+              filterMessage = await getFilter(data, filterMessage);
               if (data.message) {
                 if (data.subtype === 'message_changed') {
-                  if (messageIndex < prompt.length) {
-                    // while context to send still...
-                    if (!data.message.text.endsWith(typingString)) {
-                      try {
-                        await sendNextPrompt();
-                      } catch (error) {
-                        console.trace(error);
-                        throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
+                  if (messageIndex <= prompt.length) {
+                    if (messageIndex == prompt.length){
+                      console.log("\n=== Receiving Message ===");
+                      console.log("Streaming Enabled. Streaming Response...");
+                      console.log("Please Note:", filterMessage);
+                      messageIndex++;
+                    }
+                    else{
+                      // while context to send still...
+                      console.log("\n=== Receiving Confirmation ===");
+                      if (!data.message.text.endsWith(typingString)) {
+                        try {
+                          console.log("Please Note:", filterMessage);
+                          await sendNextPrompt();
+                          filterMessage = "";
+                        } catch (error) {
+                          console.trace(error);
+                          throw new Error(error.message + "| " + `Error while sending next prompt: ${error.message}`);
+                        }
                       }
                     }
-                  } else {
+                  } 
+                  else {
                     // all context sent, getting actual reply
                     if (!data.message.text.endsWith(typingString)) {
                       // when typing finished, this is the end of the message
                       let currentTextChunk = data.message.text.slice(currentSlice);
                       currentSlice = data.message.text.length;
-                      console.log("Finished:", data.message.text.length, " characters");
+                      console.log("Finished Streaming.", data.message.text.length, "characters received.");
                       currentTextChunk = currentTextChunk.replace(/\*/g, '');
                       controller.enqueue(currentTextChunk);
                       controller.close();
@@ -254,7 +307,7 @@ async function getWebSocketResponse(messages, streaming) {
                       let actualLength = data.message.text.length - typingString.length
                       let currentTextChunk = data.message.text.slice(currentSlice, actualLength);
                       currentSlice = actualLength
-                      console.log("Sending :", currentTextChunk.length, " characters");
+                      console.log(currentTextChunk.length, "characters received.");
                       currentTextChunk = currentTextChunk.replace(/\*/g, '');
                       controller.enqueue(currentTextChunk);
                     }

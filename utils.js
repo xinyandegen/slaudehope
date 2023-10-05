@@ -45,11 +45,11 @@ function preparePrompt(messages) {
 }
 
 function buildPrompt(messages) {
+  console.log("\n=== Preparing Prompt ===")
   let prompt = preparePrompt(messages);
   let prompt_chunks = [];
   prompt = prompt.replace(/\n[ \t]*\n/g, '\n');
   prompt = prompt.replace(/\*/g, '');
-  console.log("Reminder! Modify your prompts/JBs if you're triggering the Acceptable Use Policy warning!\nRefrain from using too much NSFW words as it will trigger the filter.");
   let charInput = parseXML("char", prompt); //get Character Details with XML tag.
   prompt = prompt.replace(charInput, "");
   let scenarioInput = parseXML("scenario", prompt); //get Scenario Details with XML tag.
@@ -77,9 +77,9 @@ function buildPrompt(messages) {
     console.error("Error: " + err.message);
   }
  
-  promptLength = ignoreInput.length + charInput.length + scenarioInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length;
+  promptLength = charInput.length + scenarioInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length;
   if (promptLength > 13200){
-    promptLength += (ignoreInput.length*2) + splitInput.length;
+    promptLength += ignoreInput.length + splitInput.length;
   }
   console.log("Prompt Length:", promptLength);
   try{
@@ -87,19 +87,20 @@ function buildPrompt(messages) {
       throw new Error("Prompt exceeds 18000 chars! Lower your context size.");
     }
     else if (promptLength > 13200){ //Will split the message in two.
-      if (ignoreInput.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
+      if (charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
         throw new Error("Your character and scenario exceeds 13200 chars!");
       }
-      if (ignoreInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
+      if (chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
         throw new Error("Your chat exceeds 13000 chars! Lower your context size.");
       }
       console.log("Prompt longer than 13200~ chars. Splitting...");
-      prompt_chunks.push(ignoreInput+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
-      prompt_chunks.push(ignoreInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+      prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
+      prompt_chunks.push(chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
     }
     else{
-      prompt_chunks.push(ignoreInput+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+      prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
     }
+    console.log("Prompt Finished.")
   }
   catch(error){
     console.error("Error:", error.message);
