@@ -225,6 +225,7 @@ async function getWebSocketResponse(messages, streaming) {
                   websocket.close(1000, 'Connection closed by client');
                   resolve(data.message.text);
                   console.log("Finished Streaming.", data.message.text.length, "characters received.");
+                  filterMessage = "";
                 } else {
                   let actualLength = data.message.text.length - typingString.length;
                   let currentTextTotal = data.message.text.slice(0, actualLength);
@@ -295,6 +296,7 @@ async function getWebSocketResponse(messages, streaming) {
                       controller.enqueue(currentTextChunk);
                       controller.close();
                       websocket.close(1000, 'Connection closed by client');
+                      filterMessage = "";
                     } else {
                       let actualLength = data.message.text.length - typingString.length
                       let currentTextChunk = data.message.text.slice(currentSlice, actualLength);
