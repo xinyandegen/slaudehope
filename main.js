@@ -5,6 +5,7 @@ const { readBody, splitJsonArray } = require('./utils');
 const { retryableWebSocketResponse, textResetSignal } = require('./slack');
 
 async function main() {
+    console.clear();
     const server = http.createServer(async (req, res) => {
         if (req.method.toUpperCase() === 'POST') {
             const body = await readBody(req, true);
@@ -87,7 +88,7 @@ async function main() {
     });
 
     server.listen(5004, '0.0.0.0', () => {
-        console.log(`Slaude Hope/Cope: 'http://127.0.0.1:5004/'`);
+        console.log(`slaudehope proxy link: \u001b[1m\u001b[32mhttp://127.0.0.1:5004/\u001b[0m`);
     });
 }
 

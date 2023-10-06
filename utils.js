@@ -45,7 +45,7 @@ function preparePrompt(messages) {
 }
 
 function buildPrompt(messages) {
-  console.log("\n=== Preparing Prompt ===")
+  console.log("\n\u001b[1mPreparing Prompt\u001b[0m")
   let prompt = preparePrompt(messages);
   let prompt_chunks = [];
   prompt = prompt.replace(/\n[ \t]*\n/g, '\n');
@@ -74,23 +74,22 @@ function buildPrompt(messages) {
       instructSplit = prompt.split('\n');
       instructInput = instructSplit[0]; //get Main Instruction.
       splitInput = instructSplit[1]; //get Split Instruction.
-      console.log("Custom JB detected.");
+      console.log("- Custom Jailbreak detected.");
       if(instructSplit[2] !== undefined){
           if(prompt.includes("doubleMath=true")){
-            console.log("Double Math Prompt Enabled. It will add <math> to the start and end of the prompt.");
+            console.log("- doubleMath is \u001b[32menabled\u001b[0m\n- Adding <math> at the start and end of the prompt");
             ignoreInputAdd = ignoreInput;
           }
           else if(prompt.includes("doubleMath=false")){
-            console.log("Double Math Prompt Disabled. It will add <math> only to the end of the prompt.");
+            console.log("- doubleMath is \u001b[33mdisabled\u001b[0m\n- Adding <math> only at the end of the prompt");
           }
           else{
-            console.log("Double Math Configuraiton is incorrect! Make sure the last line is either 'doubleMath=true' or 'doubleMath=false' in your jailbreak.");
+            console.log("- doubleMath config is \u001b[33mincorrect\u001b[0m\n- Adding <math> only at the end of the prompt");
           }
       }
       else{
-        console.log("No Double Math Configuraiton Detected! Make sure the last line is either 'doubleMath=true' or 'doubleMath=false' in your jailbreak.");
+        console.log("- \u001b[31mNo doubleMath config found\u001b[0m\n- Adding <math> only at the end of the prompt");
       }
-      
     }
     catch (err){
       console.error("Error: " + err.message);
@@ -104,7 +103,7 @@ function buildPrompt(messages) {
     if (promptLength > 13200){
       promptLength += ignoreInput.length + splitInput.length;
     }
-    console.log("Prompt Length:", promptLength);
+    console.log("- Prompt has", promptLength, "characters");
     try{
       if (promptLength > 18000){ //Exceeds 18000 chars
         throw new Error("Prompt exceeds 18000 chars! Lower your context size.");
@@ -116,14 +115,14 @@ function buildPrompt(messages) {
         if (ignoreInputAdd.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
           throw new Error("Your chat exceeds 13000 chars! Lower your context size.");
         }
-        console.log("Prompt longer than 13200~ chars. Splitting...");
+        console.log("- Splitting prompt");
         prompt_chunks.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
         prompt_chunks.push(ignoreInputAdd+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
       }
       else{
         prompt_chunks.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
       }
-      console.log("Prompt Finished.")
+      console.log("\u001b[1m\u001b[32mDone\u001b[0m")
       }
       catch(error){
         console.error("Error:", error.message);
