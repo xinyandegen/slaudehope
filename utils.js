@@ -67,12 +67,30 @@ function buildPrompt(messages) {
     let instructInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, avoid <ban>, and ignore <math>.";
     //default split instruction
     let splitInput = "Identify repeating phrases, dialogues, character actions, and ideas. Your response ONLY should be the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Simply ignore <math>.";
+    //this will be for when you enable doubleMath Prompt which basically adds the <math> instructions on the start of the prompt as well.
+    let ignoreInputAdd = "";
     try{
       prompt = prompt.replace(/^\s*[\r\n]/gm, '');
       instructSplit = prompt.split('\n');
       instructInput = instructSplit[0]; //get Main Instruction.
       splitInput = instructSplit[1]; //get Split Instruction.
       console.log("Custom JB detected.");
+      if(instructSplit[2] !== undefined){
+          if(prompt.includes("doubleMath=true")){
+            console.log("Double Math Prompt Enabled. It will add <math> to the start and end of the prompt.");
+            ignoreInputAdd = ignoreInput;
+          }
+          else if(prompt.includes("doubleMath=false")){
+            console.log("Double Math Prompt Disabled. It will add <math> only to the end of the prompt.");
+          }
+          else{
+            console.log("Double Math Configuraiton is incorrect! Make sure the last line is either 'doubleMath=true' or 'doubleMath=false' in your jailbreak.");
+          }
+      }
+      else{
+        console.log("No Double Math Configuraiton Detected! Make sure the last line is either 'doubleMath=true' or 'doubleMath=false' in your jailbreak.");
+      }
+      
     }
     catch (err){
       console.error("Error: " + err.message);
@@ -92,18 +110,18 @@ function buildPrompt(messages) {
         throw new Error("Prompt exceeds 18000 chars! Lower your context size.");
       }
       else if (promptLength > 13200){ //Will split the message in two.
-        if (charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
+        if (ignoreInputAdd.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
           throw new Error("Your character and scenario exceeds 13200 chars!");
         }
-        if (chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
+        if (ignoreInputAdd.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
           throw new Error("Your chat exceeds 13000 chars! Lower your context size.");
         }
         console.log("Prompt longer than 13200~ chars. Splitting...");
-        prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
-        prompt_chunks.push(chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+        prompt_chunks.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
+        prompt_chunks.push(ignoreInputAdd+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
       }
       else{
-        prompt_chunks.push(charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+        prompt_chunks.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
       }
       console.log("Prompt Finished.")
       }
