@@ -136,7 +136,11 @@ async function buildFinalPrompt() {
       memoryInput = memoryInput.replace("\n</memory>", "]");
     }
   }
-  let promptLength = ignoreInputAdd.length + charInput.length + scenarioInput.length + memoryInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + vectorInput.length + ignoreInput.length;
+  let chatMembers = "";
+  chatMembers = await getMembers(assistantGroup, chatMembers);
+  chatMembers = await getMembers(userGroup, chatMembers);
+  chatMembers = "[Characters: "+chatMembers+"]"
+  let promptLength = ignoreInputAdd.length + charInput.length + scenarioInput.length + memoryInput.length + chatInput.length + chatMembers.length + requireInput.length + banInput.length + instructInput.length + vectorInput.length + ignoreInput.length;
   if (promptLength > 13200){
     promptLength += ignoreInputAdd.length + ignoreInput.length + splitInput.length;
   }
@@ -144,10 +148,6 @@ async function buildFinalPrompt() {
     if (ignoreInputAdd.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
       throw new Error("Your character and scenario exceeds 13200 chars!");
     }
-    let chatMembers = "";
-    chatMembers = await getMembers(assistantGroup, chatMembers);
-    chatMembers = await getMembers(userGroup, chatMembers);
-    chatMembers = "[Characters: "+chatMembers+"]"
     let maxChatLength = 15700-(6 + memoryInput.length + chatMembers.length + (ignoreInputAdd.length*2) + charInput.length + scenarioInput.length + splitInput.length + requireInput.length + banInput.length + instructInput.length + (ignoreInput.length*2));
     console.log("- Remaining", maxChatLength,"is reserved for <chat>.")
     chatInput = chatInput.replace("<chat>", "");
@@ -164,7 +164,12 @@ async function buildFinalPrompt() {
           messageBlock = chatMessages[i] + "\n" + messageBlock;
         }
         if (chatInput.length + messageBlock.length > maxChatLength) {
-          chatInput = "<chat>\n" + chatMembers + "\n" + memoryInput + "\n" + chatInput;
+          if(memoryInput){
+            chatInput = "<chat>\n" + chatMembers + "\n" + memoryInput + "\n" + chatInput;
+          }
+          else{
+            chatInput = "<chat>\n" + chatMembers + "\n" + chatInput;
+          }
           break;
         }
         else{
@@ -187,6 +192,12 @@ async function buildFinalPrompt() {
     prompt.push(ignoreInputAdd+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
   }
   else{
+    if(memoryInput){
+      chatInput = chatInput.replace("<chat>", "<chat>\n" + chatMembers + "\n" + memoryInput);
+    }
+    else{
+      chatInput = chatInput.replace("<chat>", "<chat>\n" + chatMembers);
+    }
     prompt.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
   }
   console.log("\u001b[1m\u001b[32mDone\u001b[0m");
