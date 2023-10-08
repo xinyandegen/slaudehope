@@ -1,34 +1,29 @@
 {
-  "name": "spermack",
-  "version": "1.0.1",
-  "description": "Slack's Claude connected to the TavernAI",
+  "name": "slaudehope",
+  "version": "1.5.0",
+  "description": "Slack Claude Proxy",
   "main": "main.js",
+  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AmmoniaM/Spermack.git"
+    "url": "git+https://github.com/xinyandegen/slaudehope.git"
   },
   "keywords": [
-    "Slack",
-    "Claude",
-    "TavernAI",
-    "Reverse",
-    "proxy",
-    "2ch"
+    "slaude"
   ],
-  "author": "Barbariskaa",
-  "license": "Custom license",
+  "author": "xinyandegen",
+  "license": "Custom",
   "bugs": {
-    "url": "https://github.com/AmmoniaM/Spermack/issues"
+    "url": "https://github.com/xinyandegen/slaudehope/issues"
   },
-  "homepage": "https://github.com/AmmoniaM/Spermack#readme",
+  "homepage": "https://github.com/xinyandegen/slaudehope#readme",
   "dependencies": {
     "form-data": "^4.0.0",
     "formdata": "^0.10.4",
     "wc": "^0.0.1",
     "ws": "^8.13.0"
-  },
-  "devDependencies": {}
+  }
 }

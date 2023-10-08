@@ -1,6 +1,6 @@
 const FormData = require('form-data');
 
-const { TOKEN, COOKIE, CLAUDE, rename_roles, } = require('./config');
+const { TOKEN, COOKIE, CLAUDE } = require('./config');
 
 const wait = (duration) => {
   return new Promise((resolve) => {
@@ -10,204 +10,21 @@ const wait = (duration) => {
   });
 };
 
-function preparePrompt(messages) {
-  return messages.filter(m => m.content?.trim()).map(m => {
-    role = m.role;
-    let author = '';
-    let is_example = false;
-    if (m.name && m.name.startsWith("example_")) {
-      is_example = true;
-    }
-    if (role in rename_roles) {
-      if (role != 'system') {
-        author = rename_roles[role]
-      } else {
-        if (m.name) {
-          if (is_example) {
-            let name = m.name.slice("example_".length,)
-            if (name in rename_roles) {
-              author = rename_roles[name];
-            }
-          }
-        } else {
-          author = rename_roles[role];
-        }
-      }
-    } else {
-      author = role;
-    }
-    let f = ": ";
-    if (!author) {
-      f = "";
-    }
-    return `${author}${f}${m.content.trim()}`;
-  }).join('\n\n');
-}
+let prompt = "";//setting prompt
+let scenarioInput = "";
+//default instruction
+let instructInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, avoid <ban>, and ignore <math>.";
+//default split instruction
+let splitInput = "Identify repeating phrases, dialogues, character actions, and ideas. Your response ONLY should be the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Simply ignore <math>.";
+//default vector instruction
+let vectorInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, In 150 to 200 words, In third person, Summarize into one paragraph the information within <memory> which are broken up conversation of {{char}}'s memories. Write as if you're summarizing a story. Don't write less than 150 words or more than 200 words. No OOC comments. Ignore and dismiss <math>.";
+let ignoreInput = "";//this will be for <math> bloat.
+let ignoreInputAdd = ""; //this will be for when you enable doubleMath.
+let userGroup = []; //this will serve if user has multiple personas.
+let assistantGroup = []; //this will serve for group chats with multiple character names assigned for assistant.
+let vectorSummarizeBoolean = false;
 
-function buildPrompt(messages) {
-  console.log("\n\u001b[1mPreparing Prompt\u001b[0m")
-  let prompt = preparePrompt(messages);
-  let prompt_chunks = [];
-  prompt = prompt.replace(/\n[ \t]*\n/g, '\n');
-  prompt = prompt.replace(/\*/g, '');
-  try{
-    let charInput = parseXML("char", prompt); //get Character Details with XML tag.
-    prompt = prompt.replace(charInput, "");
-    let scenarioInput = parseXML("scenario", prompt); //get Scenario Details with XML tag.
-    prompt = prompt.replace(scenarioInput, "");
-    let chatInput = parseXML("chat", prompt); //get Chat Details with XML tag.
-    prompt = prompt.replace(chatInput, "");
-    let requireInput = parseXML("requirements", prompt); //get Requirements Details with XML tag.
-    prompt = prompt.replace(requireInput, "");
-    let banInput = parseXML("ban", prompt); //get Ban Details with XML tag.
-    prompt = prompt.replace(banInput, "");
-    let ignoreInput = parseXML("math", prompt); //get Ignore Details with XML tag.
-    prompt = prompt.replace(ignoreInput, "");
-    //default instruction
-    let instructInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, avoid <ban>, and ignore <math>.";
-    //default split instruction
-    let splitInput = "Identify repeating phrases, dialogues, character actions, and ideas. Your response ONLY should be the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Simply ignore <math>.";
-    //this will be for when you enable doubleMath Prompt which basically adds the <math> instructions on the start of the prompt as well.
-    let ignoreInputAdd = "";
-    try{
-      prompt = prompt.replace(/^\s*[\r\n]/gm, '');
-      instructSplit = prompt.split('\n');
-      instructInput = instructSplit[0]; //get Main Instruction.
-      splitInput = instructSplit[1]; //get Split Instruction.
-      console.log("- Custom Jailbreak detected.");
-      if(instructSplit[2] !== undefined){
-          if(prompt.includes("doubleMath=true")){
-            console.log("- doubleMath is \u001b[32menabled\u001b[0m\n- Adding <math> at the start and end of the prompt");
-            ignoreInputAdd = ignoreInput;
-          }
-          else if(prompt.includes("doubleMath=false")){
-            console.log("- doubleMath is \u001b[33mdisabled\u001b[0m\n- Adding <math> only at the end of the prompt");
-          }
-          else{
-            console.log("- doubleMath config is \u001b[33mincorrect\u001b[0m\n- Adding <math> only at the end of the prompt");
-          }
-      }
-      else{
-        console.log("- \u001b[31mNo doubleMath config found\u001b[0m\n- Adding <math> only at the end of the prompt");
-      }
-    }
-    catch (err){
-      console.error("Error: " + err.message);
-      return ["Your custom jailbreak is not working. Please make sure to reserve the last two lines in your jailbreak to main and split instruction. Follow the rentry guide: https://rentry.org/slaudehope"];
-    }
-    let testLength = [charInput,scenarioInput,chatInput,requireInput,banInput,ignoreInput,instructInput,splitInput]
-    if (testLength.some(s => s.length === 0)){
-      throw new Error("Your prompt is not formatted correctly. Follow the rentry guide: https://rentry.org/slaudehope");
-    }
-    promptLength = charInput.length + scenarioInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length;
-    if (promptLength > 13200){
-      promptLength += ignoreInput.length + splitInput.length;
-    }
-    console.log("- Prompt has", promptLength, "characters");
-    try{
-      if (promptLength > 18000){ //Exceeds 18000 chars
-        throw new Error("Prompt exceeds 18000 chars! Lower your context size.");
-      }
-      else if (promptLength > 13200){ //Will split the message in two.
-        if (ignoreInputAdd.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length > 13200){
-          throw new Error("Your character and scenario exceeds 13200 chars!");
-        }
-        if (ignoreInputAdd.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + ignoreInput.length > 13200){
-          throw new Error("Your chat exceeds 13000 chars! Lower your context size.");
-        }
-        console.log("- Splitting prompt");
-        prompt_chunks.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
-        prompt_chunks.push(ignoreInputAdd+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
-      }
-      else{
-        prompt_chunks.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
-      }
-      console.log("\u001b[1m\u001b[32mDone\u001b[0m")
-      }
-      catch(error){
-        console.error("Error:", error.message);
-        return ['Say "Error: "'+error.message+'"'];
-      }
-      return prompt_chunks;
-  }
-  catch (err){
-    console.error("Prompt Building Failed:", err.message);
-    return ['Please respond with this: "Your prompt is not formatted correctly. Follow the rentry guide: https://rentry.org/slaudehope"'];
-  }
-      //These set of code used to split chats into two but Claude had a hard time remembering details due to more xml tags to think of.
-      /*else { //Splits chat since it has more space.
-        maxChatLength = (promptLength/2) - (ignoreInput.length + charInput.length + scenarioInput.length + splitInput.length + ignoreInput.length);
-        console.log("Splitting chat into those two prompts. Available "+ maxChatLength +" characters.");
-        //Split Chat into two.
-        chatInput = chatInput.replace("<chat>", "");
-        chatInput = chatInput.replace("</chat>", "");
-        let chatMessages = chatInput.split('\n');
-        let chatInputFirst = '<chat1>'; //declare <chat1>
-        let chatInputSecond = '<chat2>'; //declare <chat2>
-        let currentChat = chatInputFirst;
-        let ii = 0;
-        //Putting max messages possible on first message.
-        for (let i = 1; i < chatMessages.length - 1; i++) {
-          if (chatMessages[i].startsWith('A:') || chatMessages[i].startsWith('B:')) {
-            // Hit a new message, check if need to split
-            console.log(currentChat.length + chatMessages[i].length)
-            console.log(maxChatLength)
-            if (currentChat.length + chatMessages[i].length > maxChatLength) { //If it exceeds 12000 chars. Close chat.
-              chatInputFirst = currentChat + '\n</chat1>';
-              ii = i;
-              break;
-            }
-          }
-          currentChat += '\n' + chatMessages[i];
-        }
-        console.log("Added "+ii+" messages to <chat1>");
-        //Putting rest on chatInputSecond.
-        currentChat = chatInputSecond;
-        for (let i = ii; i < chatMessages.length - 1; i++) {
-          currentChat += '\n' + chatMessages[i];
-        }
-        chatInputSecond = currentChat + '\n</chat2>';
-        //Change requirements to account for two chat xml tags.
-        requireInput = requireInput.replace(`<chat>`, `<chat2>`);
-        requireInput = requireInput.replace(`<scenario>`, `<scenario>, and <chat1>`);
-        prompt_chunks.push(ignoreInput+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInputFirst+"\n"+splitInput+"\n"+ignoreInput);
-        prompt_chunks.push(ignoreInput+"\n"+chatInputSecond+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
-      }*/
-}
-
-function parseXML(xmlLabel, p){
-  const regex = new RegExp(`<${xmlLabel}>([\\s\\S]*?)<\\/${xmlLabel}>`, 'g');
-  const matches = p.matchAll(regex);
-  let parsedValue = '';
-  for (const match of matches) {
-    parsedValue += match[0]; 
-  }
-  return parsedValue;
-}
-
-const readBody = (res, json) => new Promise((resolve, reject) => {
-  let buffer = '';
-
-  res.on('data', chunk => {
-      buffer += chunk;
-  });
-
-  res.on('end', () => {
-      try {
-          if (json) buffer = JSON.parse(buffer);
-          resolve(buffer);
-      } catch (e) {
-          console.error(buffer);
-          reject(e);
-      }
-  });
-})
-
-const headers = {
-  'Cookie': `d=${COOKIE};`,
-  'User-Agent':	'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0',
-}
-
+//FIX EXAMPLES: Fixing Quotes
 function quoteFix(msg) {
 	let doubleQuotes = /^"(.*)"$/;
   let singleQuotes = /^(["'])(.*)\1$/;
@@ -222,7 +39,7 @@ function quoteFix(msg) {
   }
 }
 
-
+//FIX EXAMPLES: Main function of reformatting how example chats are sent.
 function fixExamples(jsonArray) {
   let clumpExample = ""
   for (let i = 0; i < jsonArray.length; i++) {
@@ -257,6 +74,7 @@ function fixExamples(jsonArray) {
   return jsonArray;
 }
 
+//GET JSON PROMPT: Main function of getting the json from POST and returning in chunks.
 function splitJsonArray(jsonArray) {
   if (jsonArray.length == 0) {
     return [];
@@ -274,6 +92,168 @@ function splitJsonArray(jsonArray) {
   }
   result.push(currentChunk);
   return result;
+} 
+
+//BUILD PROMPT: Converting json prompt into a plain text prompt.
+function preparePrompt(messages) {
+  return messages.filter(m => m.content?.trim()).map(m => {role = m.role;
+    let author = "";
+    if(m.name) {
+      author = m.name.replace("_", " ");
+    }
+    if(role != "system"){
+      if(role == "assistant"){
+        if(!assistantGroup.includes(author)){
+          assistantGroup.push(author);
+        }
+      }
+      else{
+        if(!userGroup.includes(author)){
+          userGroup.push(author);
+        }
+      }
+      author = author + ": ";
+    }  
+    return `${author}${m.content.trim()}`;
+  }).join('\n\n');
+}
+
+//BUILD PROMPT: Checking if XML tag exists. If it does it will store the value.
+function getXML(tagName, p){
+  let xmlValue = "";
+  xmlValue = parseXML(tagName, p);
+  if(xmlValue){
+    console.log("- \u001b[36m<"+tagName+">\u001b[0m: \u001b[33m"+xmlValue.length+"\u001b[0m characters")
+    prompt = prompt.replace(xmlValue, "");
+  }
+  return xmlValue;
+}
+
+//BUILD PROMPT: Detecting XML tags through regex. It serves getXML the appropriate value of the XML tag.
+function parseXML(xmlLabel, p){
+  const regex = new RegExp(`<${xmlLabel}>([\\s\\S]*?)<\\/${xmlLabel}>`, 'g');
+  const matches = p.matchAll(regex);
+  let parsedValue = '';
+  for (const match of matches) {
+    parsedValue += match[0]; 
+  }
+  return parsedValue;
+}
+
+//BUILD PROMPT: Getting instructions from prompt sent.
+function getInstructions(instructList, mInput){
+  if(instructList[0] != undefined){//MAIN INSTRUCTION
+    instructInput = instructList[0];
+    console.log("- \u001b[36mMAIN INSTRUCTION\u001b[0m: \u001b[33m"+instructInput.length+"\u001b[0m characters")
+  }
+  if(instructList[1] != undefined){//SPLIT INSTRUCTION
+    splitInput = instructList[1];
+    console.log("- \u001b[36mSPLIT INSTRUCTION\u001b[0m: \u001b[33m"+splitInput.length+"\u001b[0m characters")
+  }
+  if(instructList[2] != undefined){//VECTOR INSTRUCTION
+    vectorInput = instructList[2];
+    console.log("- \u001b[36mVECTOR INSTRUCTION\u001b[0m: \u001b[33m"+vectorInput.length+"\u001b[0m characters")
+  }
+  if(instructList[3] != undefined){//doubleMath
+    if(instructList.includes("doubleMath=true")){
+      console.log("- \u001b[36mdoubleMath\u001b[0m is \u001b[32menabled\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m at the start and end of the prompt");
+      ignoreInputAdd = ignoreInput;
+    }
+    else{
+      if(instructList.includes("doubleMath=false")){
+        console.log("- \u001b[36mdoubleMath\u001b[0m is \u001b[33mdisabled\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
+      }
+      else{
+        console.log("- \u001b[36mdoubleMath\u001b[0m config is \u001b[33mincorrect\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
+      }
+    }
+  }
+  else{
+    console.log("- \u001b[31mNo \u001b[36mdoubleMath\u001b[0m config found\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
+  }
+  if(mInput){// if there is <memory>
+    if(instructList[4] != undefined){//vectorSummarize
+      if(instructList.includes("vectorSummarize=true")){
+        console.log("- \u001b[36mvectorSummarize\u001b[0m is \u001b[32menabled\u001b[0m\n- Using summarized \u001b[36m<memory>\u001b[0m.");
+        vectorSummarizeBoolean = true;
+      }
+      else{
+        if(instructList.includes("vectorSummarize=false")){
+          console.log("- \u001b[36mvectorSummarize\u001b[0m is \u001b[33mdisabled\u001b[0m\n- Using \u001b[36m<memory>\u001b[0m without summarizing.");
+        }
+        else{
+          console.log("- \u001b[36mvectorSummarize\u001b[0m config is \u001b[33mincorrect\u001b[0m\n- Using \u001b[36m<memory>\u001b[0m without summarizing.");
+        }
+      }
+    }
+    else{
+      console.log("- \u001b[31mNo \u001b[36mvectorSummarize\u001b[0m config found\u001b[0m\n- Using \u001b[36m<memory>\u001b[0m without summarizing.");
+    }
+  }
+}
+
+//BUILD PROMPT: Main function of building prompts.
+function buildPrompt(messages) {//main process of building the prompt
+  try{
+    console.log("\n\u001b[1mPreparing Prompt\u001b[0m");
+    //RESETTING VALUES
+    //default instruction
+    instructInput = "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, avoid <ban>, and ignore <math>.";
+    //default split instruction
+    splitInput = "Identify repeating phrases, dialogues, character actions, and ideas. Your response ONLY should be the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Simply ignore <math>.";
+    ignoreInput = "";//this will be for <math> bloat.
+    scenarioInput = "";//this will be for scenario.
+    ignoreInputAdd = ""; //this will be for when you enable doubleMath.
+    doubleMathBoolean = false; //this will be the default doubleMath config.
+    vectorSummarizeBoolean = false; //this will be the default vectorSummarize config.
+    let prompt_chunks = [];//where the prompts will be stored to be sent for slack.
+    //START GETTING VALUES
+    prompt = preparePrompt(messages);//converting json prompt due to OpenAI formatting to plain text Claude format.
+    prompt = prompt.replace(/\n[ \t]*\n/g, '\n');//removing blank newlines.
+    prompt = prompt.replace(/\*/g, '');//removing asterisks.
+    let charInput = getXML("char", prompt); //get Character Details with XML tag.
+    scenarioInput = getXML("scenario", prompt); //get Scenario Details with XML tag.
+    let memoryInput = getXML("memory", scenarioInput); //get Memory from Scenario.
+    scenarioInput = scenarioInput.replace(memoryInput, ""); //remove Memory from Scenario if it exists.
+    let chatInput = getXML("chat", prompt); //get Chat Details with XML tag.
+    let requireInput = getXML("requirements", prompt); //get Requirements Details with XML tag.
+    let banInput = getXML("ban", prompt); //get Ban Details with XML tag.
+    ignoreInput = getXML("math", prompt); //get Ignore Details with XML tag.
+    prompt = prompt.replace(/^\s*[\r\n]/gm, '');
+    instructSplit = prompt.split('\n'); 
+    getInstructions(instructSplit, memoryInput); //get Main Instruction, Split Instruction, Vector Instruction, doubleMath config, vectorSummarize config.
+    //PUT VALUES TO ARRAY
+    prompt_chunks = [charInput, scenarioInput, memoryInput, chatInput, requireInput, banInput, ignoreInput, ignoreInputAdd, instructInput, splitInput, vectorInput, userGroup, assistantGroup, vectorSummarizeBoolean];
+    //RETURN ARRAY
+    return prompt_chunks;
+  }
+  catch (err){
+    console.error("Prompt Building Failed:", err.message);
+    return ['Please respond with this: "'+err.message+"'"];
+  }
+}
+
+const readBody = (res, json) => new Promise((resolve, reject) => {
+  let buffer = '';
+
+  res.on('data', chunk => {
+      buffer += chunk;
+  });
+
+  res.on('end', () => {
+      try {
+          if (json) buffer = JSON.parse(buffer);
+          resolve(buffer);
+      } catch (e) {
+          console.error(buffer);
+          reject(e);
+      }
+  });
+})
+
+const headers = {
+  'Cookie': `d=${COOKIE};`,
+  'User-Agent':	'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0',
 }
   
 function convertToUnixTime(date) {

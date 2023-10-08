@@ -86,9 +86,11 @@ async function main() {
         }
         res.end();
     });
-
+    
     server.listen(5004, '0.0.0.0', () => {
         console.log(`slaudehope proxy link: \u001b[1m\u001b[32mhttp://127.0.0.1:5004/\u001b[0m`);
+        console.log("Set Chat Completion Source to \u001b[33mOpenAI\u001b[0m");
+        console.log("Insert the link at \u001b[33mOpenAI / Claude Reverse Proxy\u001b[0m");
     });
 }
 

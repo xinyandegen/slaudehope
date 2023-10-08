@@ -1,4 +1,4 @@
-:loop
+@echo off
 call npm install
 node main.js
-goto loop
+pause
