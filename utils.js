@@ -156,33 +156,33 @@ function getInstructions(instructList, mInput){
   }
   if(instructList[3] != undefined){//doubleMath
     if(instructList.includes("doubleMath=true")){
-      console.log("- \u001b[36mdoubleMath\u001b[0m is \u001b[32menabled\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m at the start and end of the prompt");
+      console.log("- \u001b[36mdoubleMath\u001b[0m=\u001b[32menabled\u001b[0m: Adding \u001b[36m<math>\u001b[0m at the start and end of the prompt");
       ignoreInputAdd = ignoreInput;
     }
     else{
       if(instructList.includes("doubleMath=false")){
-        console.log("- \u001b[36mdoubleMath\u001b[0m is \u001b[33mdisabled\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
+        console.log("- \u001b[36mdoubleMath\u001b[0m=\u001b[33mdisabled\u001b[0m: Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
       }
       else{
-        console.log("- \u001b[36mdoubleMath\u001b[0m config is \u001b[33mincorrect\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
+        console.log("- \u001b[36mdoubleMath\u001b[0m config is \u001b[33mincorrect\u001b[0m: Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
       }
     }
   }
   else{
-    console.log("- \u001b[31mNo \u001b[36mdoubleMath\u001b[0m config found\u001b[0m\n- Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
+    console.log("- \u001b[31mNo \u001b[36mdoubleMath\u001b[0m config found\u001b[0m: Adding \u001b[36m<math>\u001b[0m only at the end of the prompt");
   }
   if(mInput){// if there is <memory>
     if(instructList[4] != undefined){//vectorSummarize
       if(instructList.includes("vectorSummarize=true")){
-        console.log("- \u001b[36mvectorSummarize\u001b[0m is \u001b[32menabled\u001b[0m\n- Using summarized \u001b[36m<memory>\u001b[0m.");
+        console.log("- \u001b[36mvectorSummarize\u001b[0m=\u001b[32menabled\u001b[0m: Using summarized \u001b[36m<memory>\u001b[0m.");
         vectorSummarizeBoolean = true;
       }
       else{
         if(instructList.includes("vectorSummarize=false")){
-          console.log("- \u001b[36mvectorSummarize\u001b[0m is \u001b[33mdisabled\u001b[0m\n- Using \u001b[36m<memory>\u001b[0m without summarizing.");
+          console.log("- \u001b[36mvectorSummarize\u001b[0m=\u001b[33mdisabled\u001b[0m: Using \u001b[36m<memory>\u001b[0m without summarizing.");
         }
         else{
-          console.log("- \u001b[36mvectorSummarize\u001b[0m config is \u001b[33mincorrect\u001b[0m\n- Using \u001b[36m<memory>\u001b[0m without summarizing.");
+          console.log("- \u001b[36mvectorSummarize\u001b[0m config is \u001b[33mincorrect\u001b[0m: Using \u001b[36m<memory>\u001b[0m without summarizing.");
         }
       }
     }
@@ -215,11 +215,12 @@ function buildPrompt(messages) {//main process of building the prompt
     scenarioInput = getXML("scenario", prompt); //get Scenario Details with XML tag.
     let memoryInput = getXML("memory", scenarioInput); //get Memory from Scenario.
     scenarioInput = scenarioInput.replace(memoryInput, ""); //remove Memory from Scenario if it exists.
+    scenarioInput = scenarioInput.replace(/^\s*[\r\n]/gm, ''); //removing unwanted blank new lines.
     let chatInput = getXML("chat", prompt); //get Chat Details with XML tag.
     let requireInput = getXML("requirements", prompt); //get Requirements Details with XML tag.
     let banInput = getXML("ban", prompt); //get Ban Details with XML tag.
     ignoreInput = getXML("math", prompt); //get Ignore Details with XML tag.
-    prompt = prompt.replace(/^\s*[\r\n]/gm, '');
+    prompt = prompt.replace(/^\s*[\r\n]/gm, ''); //removing unwanted blank new lines.
     instructSplit = prompt.split('\n'); 
     getInstructions(instructSplit, memoryInput); //get Main Instruction, Split Instruction, Vector Instruction, doubleMath config, vectorSummarize config.
     //PUT VALUES TO ARRAY

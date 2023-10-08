@@ -127,14 +127,14 @@ const sendNextPrompt = async () => {
 async function buildFinalPrompt() {
   if (memoryInput){
     if (summarizedMemory){
-      memoryInput = "Memories:\n" + summarizedMemory;
+      summarizedMemory = summarizedMemory.replace(/\n[ \t]*\n/g, '\n');//removing blank newlines.
+      summarizedMemory = summarizedMemory.replace(/\*/g, '');//removing asterisks.
+      memoryInput = "[Memories:\n" + summarizedMemory + "]";
     }
     else{
-      memoryInput = memoryInput.replace("<memory>", "Memories:");
-      memoryInput = memoryInput.replace("</memory>", "");
+      memoryInput = memoryInput.replace("<memory>", "[Memories:");
+      memoryInput = memoryInput.replace("\n</memory>", "]");
     }
-    scenarioInput = scenarioInput.replace("\n</scenario>", "");
-    scenarioInput += memoryInput + "</scenario>";
   }
   let promptLength = ignoreInputAdd.length + charInput.length + scenarioInput.length + memoryInput.length + chatInput.length + requireInput.length + banInput.length + instructInput.length + vectorInput.length + ignoreInput.length;
   if (promptLength > 13200){
@@ -148,7 +148,7 @@ async function buildFinalPrompt() {
     chatMembers = await getMembers(assistantGroup, chatMembers);
     chatMembers = await getMembers(userGroup, chatMembers);
     chatMembers = "[Characters: "+chatMembers+"]"
-    let maxChatLength = 15700-(6 + chatMembers.length + (ignoreInputAdd.length*2) + charInput.length + scenarioInput.length + splitInput.length + requireInput.length + banInput.length + instructInput.length + (ignoreInput.length*2));
+    let maxChatLength = 15700-(6 + memoryInput.length + chatMembers.length + (ignoreInputAdd.length*2) + charInput.length + scenarioInput.length + splitInput.length + requireInput.length + banInput.length + instructInput.length + (ignoreInput.length*2));
     console.log("- Remaining", maxChatLength,"is reserved for <chat>.")
     chatInput = chatInput.replace("<chat>", "");
     chatInput = chatInput.replace("</chat>", "");
@@ -164,7 +164,7 @@ async function buildFinalPrompt() {
           messageBlock = chatMessages[i] + "\n" + messageBlock;
         }
         if (chatInput.length + messageBlock.length > maxChatLength) {
-          chatInput = "<chat>\n" + chatMembers + "\n" + chatInput;
+          chatInput = "<chat>\n" + chatMembers + "\n" + memoryInput + "\n" + chatInput;
           break;
         }
         else{
@@ -386,7 +386,7 @@ async function getWebSocketResponse(messages, streaming) {
                 if (!data.message.text.endsWith(typingString)) {
                   // when typing finished, this is the end of the message
                   let finalResponse =  await responseCleaner(data.message.text);
-                  process.stdout.write("\r\x1b[K- \u001b[33m"+finalResponse.length+"\u001b[0m characters received\n");
+                  process.stdout.write("\r\x1b[K- \u001b[36m<memory>\u001b[0m: \u001b[33m"+finalResponse.length+"\u001b[0m characters\n");
                   summarizedMemory = finalResponse;
                   vectorSummarizeBoolean = false;
                   currentSlice = 0;
@@ -402,7 +402,7 @@ async function getWebSocketResponse(messages, streaming) {
                   }
                   let actualLength = data.message.text.length - typingString.length;
                   let currentTextTotal = data.message.text.slice(0, actualLength);
-                  process.stdout.write("\r\x1b[K- \u001b[33m"+currentTextTotal.length+"\u001b[0m characters received");
+                  process.stdout.write("\r\x1b[K- \u001b[36m<memory>\u001b[0m: \u001b[33m"+currentTextTotal.length+"\u001b[0m characters");
                 }
               }
               else{
@@ -481,7 +481,7 @@ async function getWebSocketResponse(messages, streaming) {
                       // when typing finished, this is the end of the message
                       let currentTextChunk = data.message.text.slice(currentSlice);
                       currentSlice = data.message.text.length;
-                      process.stdout.write("\r\x1b[K- \u001b[33m"+data.message.text.length+"\u001b[0m characters received\n");
+                      process.stdout.write("\r\x1b[K- \u001b[36m<memory>\u001b[0m: \u001b[33m"+data.message.text.length+"\u001b[0m characters\n");
                       summarizedMemory += currentTextChunk;
                       summarizedMemory = await responseCleaner(summarizedMemory);
                       buildingLength = 0;
@@ -501,7 +501,7 @@ async function getWebSocketResponse(messages, streaming) {
                       let currentTextChunk = data.message.text.slice(currentSlice, actualLength);
                       currentSlice = actualLength
                       buildingLength += currentTextChunk.length;
-                      process.stdout.write("\r\x1b[K- \u001b[33m"+buildingLength+"\u001b[0m characters received");
+                      process.stdout.write("\r\x1b[K- \u001b[36m<memory>\u001b[0m: \u001b[33m"+buildingLength+"\u001b[0m characters");
                       summarizedMemory += currentTextChunk;
                     }
                   }

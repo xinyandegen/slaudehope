@@ -16,7 +16,7 @@ Spermack is modified so it can only send up to 2 messages to Claude DMs. If the 
 3. Open the config.js file in a text editor. You need to change the following values:
 - **TOKEN** - In the workspace you created, press F12, go to the network tab (very top of inspect element tabs), once in that tab send a message in any channel, and look for the request starting with chat.postMessage, click it. Click the request(FF)/payload(Chromium) option at the top of the new section, we are looking for a token there starting with xoxc-. Copy it completely(it is the rest of the single line starting with xoxc-) and paste it into *TOKEN*.
 - **COOKIE** - Copy the cookies ENCODED in the url. Go to your workspace and press F12. Go to the storage(FF)/application(Chromium) option at the top of the inspect element tab, look for cookies called d, with a value starting with xoxd-. Copy its value completely and paste it into the *COOKIE*.
-- **TEAM_ID** - The workspace name you set is the TEAM_ID. In the upper left corner, click on the name of your workspace with a down arrow next to it. There will be a link of your workspace "**(YOUR_TEAM_ID)**.workspace.com", Paste the value into *TEAM_ID*.
+- **TEAM_ID** - The workspace name you set is the TEAM_ID. In the upper left corner, click on the name of your workspace with a down arrow next to it. There will be a link of your workspace  "**(TEAM_ID)**"~~.workspace.com~~, Paste the value into *TEAM_ID*.
 - **CLAUDE** - Go to the your DMs with Claude, open the account's info at the top of your chat window and grab the channel ID from the bottom of the new window. We insert it into *CLAUDE*.
 
 
