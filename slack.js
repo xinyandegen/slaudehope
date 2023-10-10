@@ -215,6 +215,7 @@ async function buildFinalPrompt() {
       chatInput = chatInput.replace("<chat>", "<chat>\n" + chatMembers);
     }
     finalPrompt = ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput;
+    finalPrompt = await promptCleaner(finalPrompt); //cleaning prompt.
     prompt.push(finalPrompt);
   }
   console.log("\u001b[1m\u001b[32mDone\u001b[0m");
