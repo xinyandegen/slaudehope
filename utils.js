@@ -213,18 +213,36 @@ function buildPrompt(messages) {//main process of building the prompt
     let charInput = getXML("char", prompt); //get Character Details with XML tag.
     scenarioInput = getXML("scenario", prompt); //get Scenario Details with XML tag.
     let memoryInput = getXML("memory", scenarioInput); //get Memory from Scenario.
-    scenarioInput = scenarioInput.replace(memoryInput, ""); //remove Memory from Scenario if it exists.
-    scenarioInput = scenarioInput.replace(/^\s*[\r\n]/gm, ''); //removing unwanted blank new lines.
+    let insertInput = ""; //this will be for insert.
     let chatInput = getXML("chat", prompt); //get Chat Details with XML tag.
+    if(!memoryInput){
+      memoryInput = getXML("memory", chatInput); //get Memory from Chat.
+    }
+    if(memoryInput){
+      scenarioInput = scenarioInput.replace(memoryInput, ""); //remove Memory from Scenario if it exists.
+      scenarioInput = scenarioInput.replace(/^\s*[\r\n]/gm, ''); //removing unwanted blank new lines.
+      chatInput = chatInput.replace(memoryInput, ""); //remove Memory from Chat if it exists.
+      chatInput = chatInput.replace(/^\s*[\r\n]/gm, ''); //removing unwanted blank new lines.
+      insertInput = getXML("insert", memoryInput); //get Insert from Memory.
+      if(insertInput){
+        memoryInput = memoryInput.replace(insertInput, ""); //remove Insert from Memory if it exists.
+        insertInput = insertInput.replace("<insert>\n", "");
+        insertInput = insertInput.replace("\n</insert>", "");
+      }
+    }
     let pauseInput = getXML("pause", prompt); //get pause from using Objectives.
     pauseInput = pauseInput.replace("<pause>\n", "");
     pauseInput = pauseInput.replace("\n</pause>", "");
     let impersonateInput = getXML("impersonate", prompt); //get pause from using Objectives.
-    impersonateInput = impersonateInput.replace("<impersonate>\n", "");
-    impersonateInput = impersonateInput.replace("\n</impersonate>", "");
+    if(impersonateInput){
+      impersonateInput = impersonateInput.replace("<impersonate>\n", "");
+      impersonateInput = impersonateInput.replace("\n</impersonate>", "");
+    }
     let summarizeInput = getXML("summarize", prompt); //get summarize from using Summarize
-    summarizeInput = summarizeInput.replace("<summarize>\n", "");
-    summarizeInput = summarizeInput.replace("\n</summarize>", "");
+    if(summarizeInput){
+      summarizeInput = summarizeInput.replace("<summarize>\n", "");
+      summarizeInput = summarizeInput.replace("\n</summarize>", "");
+    }
     let requireInput = getXML("requirements", prompt); //get Requirements Details with XML tag.
     let banInput = getXML("ban", prompt); //get Ban Details with XML tag.
     ignoreInput = getXML("math", prompt); //get Ignore Details with XML tag.
@@ -232,7 +250,7 @@ function buildPrompt(messages) {//main process of building the prompt
     instructSplit = prompt.split('\n'); 
     getInstructions(instructSplit, memoryInput); //get Main Instruction, Split Instruction, Vector Instruction, doubleMath config, vectorSummarize config.
     //PUT VALUES TO ARRAY
-    prompt_chunks = [charInput, scenarioInput, memoryInput, chatInput, requireInput, banInput, ignoreInput, ignoreInputAdd, instructInput, splitInput, vectorInput, userGroup, assistantGroup, vectorSummarizeBoolean, pauseInput, impersonateInput, summarizeInput];
+    prompt_chunks = [charInput, scenarioInput, memoryInput, chatInput, requireInput, banInput, ignoreInput, ignoreInputAdd, instructInput, splitInput, vectorInput, userGroup, assistantGroup, vectorSummarizeBoolean, pauseInput, impersonateInput, summarizeInput, insertInput];
     //RETURN ARRAY
     return prompt_chunks;
   }

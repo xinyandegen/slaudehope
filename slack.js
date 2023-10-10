@@ -21,6 +21,7 @@ let vectorInput = "";
 let pauseInput = "";
 let impersonateInput = "";
 let summarizeInput = "";
+let insertInput = "";
 let userGroup = [];
 let assistantGroup = [];
 let vectorSummarizeBoolean = false;
@@ -130,14 +131,14 @@ const sendNextPrompt = async () => {
 async function buildFinalPrompt() {
   let finalPrompt = "";
   let finalPrompt2 = "";
+  if(!insertInput){
+    insertInput = "[Memories:\n<text>]"
+  }
   if (memoryInput){
     if (summarizedMemory){
-      memoryInput = "[Memories:\n" + summarizedMemory + "]";
+      memoryInput = summarizedMemory;
     }
-    else{
-      memoryInput = memoryInput.replace("<memory>", "[Memories:");
-      memoryInput = memoryInput.replace("\n</memory>", "]");
-    }
+    memoryInput = insertInput.replace("<text>", memoryInput);
   }
   let chatMembers = "";
   chatMembers = await getMembers(assistantGroup, chatMembers);
@@ -330,6 +331,7 @@ async function retryableWebSocketResponse(slices, sendChunks) {
   pauseInput = "";
   impersonateInput = "";
   summarizeInput = "";
+  insertInput = "";
   userGroup = [];
   assistantGroup = [];
   vectorSummarizeBoolean = false;
@@ -391,7 +393,7 @@ async function getWebSocketResponse(messages, streaming) {
     pauseInput = buildPromptValues[14];
     impersonateInput = buildPromptValues[15];
     summarizeInput = buildPromptValues[16];
-    //CALCULATING PROMPT LENGTH
+    insertInput = buildPromptValues[17];
     try{
       if(memoryInput){//check if there is memory (vector storage enabled)
         if(vectorSummarizeBoolean){//check if user wants to summarize vectors.
@@ -401,7 +403,9 @@ async function getWebSocketResponse(messages, streaming) {
             throw new Error("Your Vectorized Messages exceeds 13200 characters! Reduce the amount.");
           }
           else{
-            response = await sendMessage(ignoreInputAdd + "\n" + memoryInput + "\n" +vectorInput + "\n" +ignoreInput);
+            let vectorSummarizePrompt = ignoreInputAdd + "\n" + memoryInput + "\n" +vectorInput + "\n" +ignoreInput;
+            vectorSummarizePrompt = await promptCleaner(vectorSummarizePrompt); //clean up the prompt.
+            response = await sendMessage(vectorSummarizePrompt);
           }
         }
         else{
