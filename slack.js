@@ -18,6 +18,8 @@ let ignoreInputAdd = "";
 let instructInput = "";
 let splitInput = "";
 let vectorInput = "";
+let pauseInput = "";
+let impersonateInput = "";
 let userGroup = [];
 let assistantGroup = [];
 let vectorSummarizeBoolean = false;
@@ -125,10 +127,10 @@ const sendNextPrompt = async () => {
 };
 
 async function buildFinalPrompt() {
+  let finalPrompt = "";
+  let finalPrompt2 = "";
   if (memoryInput){
     if (summarizedMemory){
-      summarizedMemory = summarizedMemory.replace(/\n[ \t]*\n/g, '\n');//removing blank newlines.
-      summarizedMemory = summarizedMemory.replace(/\*/g, '');//removing asterisks.
       memoryInput = "[Memories:\n" + summarizedMemory + "]";
     }
     else{
@@ -140,6 +142,16 @@ async function buildFinalPrompt() {
   chatMembers = await getMembers(assistantGroup, chatMembers);
   chatMembers = await getMembers(userGroup, chatMembers);
   chatMembers = "[Characters: "+chatMembers+"]"
+  if(pauseInput){
+    requireInput = pauseInput;
+    banInput = "";
+    instructInput = "";
+  }
+  if(impersonateInput){
+    requireInput = impersonateInput;
+    banInput = "";
+    instructInput = "";
+  }
   let promptLength = ignoreInputAdd.length + charInput.length + scenarioInput.length + memoryInput.length + chatInput.length + chatMembers.length + requireInput.length + banInput.length + instructInput.length + vectorInput.length + ignoreInput.length;
   if (promptLength > 13200){
     promptLength += ignoreInputAdd.length + ignoreInput.length + splitInput.length;
@@ -188,8 +200,14 @@ async function buildFinalPrompt() {
     }
     assistantGroup = [];
     userGroup = [];
-    prompt.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput);
-    prompt.push(ignoreInputAdd+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+    finalPrompt = ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput;
+    finalPrompt = finalPrompt.replace(/\n[ \t]*\n/g, '\n');//removing blank newlines.
+    finalPrompt = finalPrompt.replace(/\*/g, '');//removing asterisks.
+    prompt.push(finalPrompt);
+    finalPrompt2 = ignoreInputAdd+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput;
+    finalPrompt2 = finalPrompt2.replace(/\n[ \t]*\n/g, '\n');//removing blank newlines.
+    finalPrompt2 = finalPrompt2.replace(/\*/g, '');//removing asterisks.
+    prompt.push(finalPrompt2);
   }
   else{
     if(memoryInput){
@@ -198,7 +216,8 @@ async function buildFinalPrompt() {
     else{
       chatInput = chatInput.replace("<chat>", "<chat>\n" + chatMembers);
     }
-    prompt.push(ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput);
+    finalPrompt = ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput;
+    prompt.push(finalPrompt);
   }
   console.log("\u001b[1m\u001b[32mDone\u001b[0m");
   console.log("\n\u001b[1mSending Prompt\u001b[0m");
@@ -297,6 +316,8 @@ async function retryableWebSocketResponse(slices, sendChunks) {
   instructInput = "";
   splitInput = "";
   vectorInput = "";
+  pauseInput = "";
+  impersonateInput = "";
   userGroup = [];
   assistantGroup = [];
   vectorSummarizeBoolean = false;
@@ -355,6 +376,8 @@ async function getWebSocketResponse(messages, streaming) {
     userGroup = buildPromptValues[11];
     assistantGroup = buildPromptValues[12];
     vectorSummarizeBoolean = buildPromptValues[13];
+    pauseInput = buildPromptValues[14];
+    impersonateInput = buildPromptValues[15];
     //CALCULATING PROMPT LENGTH
     try{
       if(memoryInput){//check if there is memory (vector storage enabled)

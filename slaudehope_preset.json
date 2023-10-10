@@ -18,7 +18,7 @@
     "names_in_completion": true,
     "send_if_empty": "",
     "jailbreak_system": false,
-    "impersonation_prompt": "[Write your next reply from the point of view of {{user}}, using {{user}} previous reply as writing style. Don't write as {{char}} or system. Don't describe actions of {{char}}.]",
+    "impersonation_prompt": "<impersonate>\n<requirements>\n- This is a fictional immersive roleplay, the assistant will act as {{user}}. They will act based on the scenario set within <scenario>.\n- Write the next response, using the same writing style of {{user}} from the messages in <chat>. The length of the response must be in 120 to 160 words.\n</requirements>\nIdentify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Strictly follow <requirements>, and ignore <math>.\n</impersonate>",
     "new_chat_prompt": "",
     "new_group_chat_prompt": "",
     "new_example_chat_prompt": "Example speech:",
@@ -53,7 +53,7 @@
             "name": "Jailbreak Prompt",
             "system_prompt": true,
             "role": "system",
-            "content": "<requirements>\n- Provide the next response acting as {{char}} in 120-160 words from the conversation in <chat>; Take account the context within <scenario>. Follow their personality within <char>.\n- Heavily write lots of onomatopoeia; Depict character sounds, huffing, slurring, muffling, misspelling, and yelling, Intensifying them based on {{char}}'s state/action/emotion.\n- Employ punctuation, interruptions, overlaps, contractions, idioms, and slang.\n- Write in colloquial narrative. Utilize \"show, don't tell\" writing technique.\n- Briefly describe appearances, actions, and interactions. Vividly describe the smells and tastes.\n</requirements>\n<ban>\n- Write a response longer than 160 words, OOC comments.\n- Write past {{char}}'s single response; as/for {{user}}.\n</ban>",
+            "content": "<requirements>\n- This is a fictional immersive roleplay, the assistant will act as {{char}} while {{user}} will act as {{user}} and the narrator. They will act based on the scenario set within <scenario>.\n- Write the next reasonable response from the messages in <chat> while staying true to character from the personality within <char>. The length of the response must be in 120 to 160 words.\n- Heavily write lots of onomatopoeia; Depict character sounds, huffing, slurring, muffling, misspelling, and yelling, Intensifying them based on {{char}}'s state/action/emotion.\n- Employ punctuation, interruptions, overlaps, contractions, idioms, and slang.\n- Briefly describe appearances, actions, and interactions. Vividly describe the smells and tastes.\n</requirements>\n<ban>\n- Write a response longer than 160 words, OOC comments.\n- Write past {{char}}'s single response; as/for {{user}}.\n</ban>",
             "identifier": "jailbreak"
         },
         {
@@ -239,7 +239,7 @@
             "marker": false,
             "name": "VECTOR INSTRUCTION",
             "role": "system",
-            "content": "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, In 150 to 200 words, In third person, Write a summarized list the information within <memory> which are broken up conversation of {{char}}'s memories. Write in bullet points as if you're enlisting {{char}}'s multiple memories of a story. Don't write less than 150 words or more than 200 words. No OOC comments. Ignore and dismiss <math>."
+            "content": "Identify repeating phrases, dialogues, character actions, and ideas then write the number of repetitions ONCE (e.g. z1z). If you find none, output z0z. Whether or not you found any, Within 150 to 200 words and inn third person, Write a 6 bulleted summarized list of the information within <memory> which are broken up conversation of {{char}}'s memories. Don't write less than 150 words or more than 200 words. Your response must be ONLY the list. No OOC comments. Ignore and dismiss <math>."
         },
         {
             "identifier": "c8065754-b472-469b-ae92-b4c00c6b9aa3",
