@@ -201,12 +201,10 @@ async function buildFinalPrompt() {
     assistantGroup = [];
     userGroup = [];
     finalPrompt = ignoreInputAdd+"\n"+charInput+"\n"+scenarioInput+"\n"+splitInput+"\n"+ignoreInput;
-    finalPrompt = finalPrompt.replace(/\n[ \t]*\n/g, '\n');//removing blank newlines.
-    finalPrompt = finalPrompt.replace(/\*/g, '');//removing asterisks.
-    prompt.push(finalPrompt);
     finalPrompt2 = ignoreInputAdd+"\n"+chatInput+"\n"+requireInput+"\n"+banInput+"\n"+instructInput+"\n"+ignoreInput;
-    finalPrompt2 = finalPrompt2.replace(/\n[ \t]*\n/g, '\n');//removing blank newlines.
-    finalPrompt2 = finalPrompt2.replace(/\*/g, '');//removing asterisks.
+    finalPrompt = await promptCleaner(finalPrompt); //cleaning prompt.
+    finalPrompt2 = await promptCleaner(finalPrompt2); //cleaning prompt.
+    prompt.push(finalPrompt);
     prompt.push(finalPrompt2);
   }
   else{
@@ -247,6 +245,12 @@ async function getFilter(msg, fMessage){
 async function responseCleaner(msg){
   msg = msg.replace(/\*/g, "");
   msg = msg.replace(/z[0-9]{1,3}z/g, "");
+  return msg;
+}
+
+async function promptCleaner(msg){
+  msg = msg.replace(/\*/g, "");
+  msg = msg.replace(/\s*\r?\n/g, "\n");
   return msg;
 }
 
