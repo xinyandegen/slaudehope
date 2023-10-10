@@ -99,7 +99,7 @@ function preparePrompt(messages) {
   return messages.filter(m => m.content?.trim()).map(m => {role = m.role;
     let author = "";
     if(m.name) {
-      author = m.name.replace("_", " ");
+      author = m.name.replace(/\_/g, " ");
     }
     if(role != "system"){
       if(role == "assistant"){
