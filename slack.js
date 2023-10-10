@@ -20,6 +20,7 @@ let splitInput = "";
 let vectorInput = "";
 let pauseInput = "";
 let impersonateInput = "";
+let summarizeInput = "";
 let userGroup = [];
 let assistantGroup = [];
 let vectorSummarizeBoolean = false;
@@ -149,6 +150,11 @@ async function buildFinalPrompt() {
   }
   if(impersonateInput){
     requireInput = impersonateInput;
+    banInput = "";
+    instructInput = "";
+  }
+  if(summarizeInput){
+    requireInput = summarizeInput;
     banInput = "";
     instructInput = "";
   }
@@ -323,6 +329,7 @@ async function retryableWebSocketResponse(slices, sendChunks) {
   vectorInput = "";
   pauseInput = "";
   impersonateInput = "";
+  summarizeInput = "";
   userGroup = [];
   assistantGroup = [];
   vectorSummarizeBoolean = false;
@@ -383,6 +390,7 @@ async function getWebSocketResponse(messages, streaming) {
     vectorSummarizeBoolean = buildPromptValues[13];
     pauseInput = buildPromptValues[14];
     impersonateInput = buildPromptValues[15];
+    summarizeInput = buildPromptValues[16];
     //CALCULATING PROMPT LENGTH
     try{
       if(memoryInput){//check if there is memory (vector storage enabled)

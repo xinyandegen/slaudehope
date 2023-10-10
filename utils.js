@@ -204,7 +204,6 @@ function buildPrompt(messages) {//main process of building the prompt
     ignoreInput = "";//this will be for <math> bloat.
     scenarioInput = "";//this will be for scenario.
     ignoreInputAdd = ""; //this will be for when you enable doubleMath.
-    doubleMathBoolean = false; //this will be the default doubleMath config.
     vectorSummarizeBoolean = false; //this will be the default vectorSummarize config.
     let prompt_chunks = [];//where the prompts will be stored to be sent for slack.
     //START GETTING VALUES
@@ -223,6 +222,9 @@ function buildPrompt(messages) {//main process of building the prompt
     let impersonateInput = getXML("impersonate", prompt); //get pause from using Objectives.
     impersonateInput = impersonateInput.replace("<impersonate>\n", "");
     impersonateInput = impersonateInput.replace("\n</impersonate>", "");
+    let summarizeInput = getXML("summarize", prompt); //get summarize from using Summarize
+    summarizeInput = summarizeInput.replace("<summarize>\n", "");
+    summarizeInput = summarizeInput.replace("\n</summarize>", "");
     let requireInput = getXML("requirements", prompt); //get Requirements Details with XML tag.
     let banInput = getXML("ban", prompt); //get Ban Details with XML tag.
     ignoreInput = getXML("math", prompt); //get Ignore Details with XML tag.
@@ -230,7 +232,7 @@ function buildPrompt(messages) {//main process of building the prompt
     instructSplit = prompt.split('\n'); 
     getInstructions(instructSplit, memoryInput); //get Main Instruction, Split Instruction, Vector Instruction, doubleMath config, vectorSummarize config.
     //PUT VALUES TO ARRAY
-    prompt_chunks = [charInput, scenarioInput, memoryInput, chatInput, requireInput, banInput, ignoreInput, ignoreInputAdd, instructInput, splitInput, vectorInput, userGroup, assistantGroup, vectorSummarizeBoolean, pauseInput, impersonateInput];
+    prompt_chunks = [charInput, scenarioInput, memoryInput, chatInput, requireInput, banInput, ignoreInput, ignoreInputAdd, instructInput, splitInput, vectorInput, userGroup, assistantGroup, vectorSummarizeBoolean, pauseInput, impersonateInput, summarizeInput];
     //RETURN ARRAY
     return prompt_chunks;
   }
